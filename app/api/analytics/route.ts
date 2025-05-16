@@ -13,7 +13,7 @@ export async function GET() {
       },
     });
 
-    // Tambahkan tipe pada 'sum' dan 'trx'
+    // Tentukan tipe parameter sum dan trx agar tidak error
     const totalRevenue = transactions.reduce((sum: number, trx: { total_harga: number }) => {
       return sum + trx.total_harga;
     }, 0);
