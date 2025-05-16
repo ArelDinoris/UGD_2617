@@ -11,8 +11,11 @@ export async function GET() {
     });
     return NextResponse.json(transactions);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Gagal mengambil transaksi' }, { status: 500 });
+    console.error('Error fetching transactions:', error);
+    return NextResponse.json(
+      { error: 'Gagal mengambil data transaksi' },
+      { status: 500 },
+    );
   } finally {
     await prisma.$disconnect();
   }
