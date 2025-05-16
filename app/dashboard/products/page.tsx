@@ -2,60 +2,17 @@
 
 import { inter } from '@/app/ui/fonts';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-// Type declarations
-type ColorOption = {
-  name: string;
-  value: string;
-  class: string;
-};
-
-type Product = {
-  name: string;
-  price: string;
-  image: string;
-  colors: ColorOption[];
-};
-
-const products: Product[] = [
-  {
-    name: "Headphone",
-    price: "Rp 500.000",
-    image: "/headphone.png",
-    colors: [
-      { name: "Black", value: "black", class: "bg-black border border-gray-300" },
-      { name: "White", value: "white", class: "bg-white border border-gray-300" }
-    ]
-  },
-  {
-    name: "Airpod",
-    price: "Rp 500.000",
-    image: "/airbuds.png",
-    colors: [
-      { name: "Black", value: "black", class: "bg-black border border-gray-300" },
-      { name: "White", value: "white", class: "bg-white border border-gray-300" }
-    ]
-  },
-  {
-    name: "Headset",
-    price: "Rp 200.000",
-    image: "/earphone.png",
-    colors: [
-      { name: "Black", value: "black", class: "bg-black border border-gray-300" },
-      { name: "White", value: "white", class: "bg-white border border-gray-300" }
-    ]
-  },
-  {
-    name: "Accesories",
-    price: "Rp 50.000",
-    image: "/airpods.png",
-    colors: [
-      { name: "Black", value: "black", class: "bg-black border border-gray-300" },
-      { name: "White", value: "white", class: "bg-white border border-gray-300" }
-    ]
-  }
-];
+interface Product {
+  id: number;
+  nama: string;
+  harga: number;
+  stok: number;
+  warna: string;
+  foto: string;
+  deskripsi?: string;
+}
 
 const backgroundImages = [
   { src: "/headphone.png", className: "top-10 left-10 rotate-12" },
@@ -65,19 +22,57 @@ const backgroundImages = [
 ];
 
 export default function Page() {
-  const [selectedColors, setSelectedColors] = useState<Record<string, string>>(
-    products.reduce((acc: Record<string, string>, product) => {
-      acc[product.name] = product.colors[0].value;
-      return acc;
-    }, {})
-  );
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedColors, setSelectedColors] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleColorSelect = (productName: string, colorValue: string) => {
-    setSelectedColors((prev) => ({
+  useEffect(() => {
+    fetch('/api/product')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch products');
+        return res.json();
+      })
+      .then(data => {
+        setProducts(data);
+        // Default selected color: gunakan warna pertama yang tersedia (jika ada)
+        const colorDefaults: Record<number, string> = {};
+        data.forEach((prod: Product) => {
+          const warna = prod.warna.split(',')[0];
+          colorDefaults[prod.id] = warna;
+        });
+        setSelectedColors(colorDefaults);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Gagal memuat produk');
+        setLoading(false);
+      });
+  }, []);
+
+  const handleColorSelect = (productId: number, color: string) => {
+    setSelectedColors(prev => ({
       ...prev,
-      [productName]: colorValue,
+      [productId]: color
     }));
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        Loading products...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="relative p-4 text-center min-h-screen text-white overflow-visible">
@@ -96,7 +91,6 @@ export default function Page() {
         </div>
       ))}
 
-      {/* Main content */}
       <div className="relative z-10">
         <h2 className={`${inter.className} text-5xl font-bold text-white`}>
           Our Products Will Guarantee Your Satisfaction.
@@ -107,16 +101,15 @@ export default function Page() {
         
         <div className='flex justify-center'>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-16 w-full">
-            {products.map((product, index) => (
-              <div key={index} className="flex flex-col h-full">
+            {products.map((product) => (
+              <div key={product.id} className="flex flex-col h-full">
                 <div className="flex-grow bg-[#303477] border border-white border-opacity-20 rounded-lg p-6">
                   <div className="h-full flex flex-col">
-                    {/* Image box */}
                     <div className="flex-grow mb-6 p-4 bg-white bg-opacity-10 rounded-2xl flex flex-col items-center">
                       <div className="relative aspect-square w-full max-w-[250px] flex-grow">
                         <Image 
-                          src={product.image} 
-                          alt={product.name} 
+                          src={product.foto} 
+                          alt={product.nama} 
                           fill
                           className="object-contain"
                           sizes="(max-width: 768px) 100vw, 33vw"
@@ -124,30 +117,32 @@ export default function Page() {
                       </div>
                       
                       <h3 className={`${inter.className} text-2xl font-semibold text-white mt-4`}>
-                        {product.name}
+                        {product.nama}
                       </h3>
-                      {/* Color selection */}
+
+                      {/* Color buttons */}
                       <div className="flex justify-center space-x-4 mb-2 mt-2">
-                        {product.colors.map((color) => (
+                        {product.warna.split(',').map((color) => (
                           <button
-                            key={color.value}
-                            onClick={() => handleColorSelect(product.name, color.value)}
-                            className={`w-8 h-8 rounded-full ${color.class} ${
-                              selectedColors[product.name] === color.value
-                              ? 'ring-2 ring-blue-400' 
-                              : ''
-                            } transition-all`}
-                            aria-label={color.name}
-                            title={color.name}
+                            key={color}
+                            onClick={() => handleColorSelect(product.id, color)}
+                            className={`w-8 h-8 rounded-full border ${
+                              selectedColors[product.id] === color
+                                ? 'ring-2 ring-blue-400'
+                                : 'border-gray-300'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            aria-label={color}
+                            title={color}
                           />
                         ))}
                       </div>
+
                       <p className={`${inter.className} text-xl italic text-white text-opacity-80`}>
-                        {product.price}
+                        Rp {product.harga.toLocaleString('id-ID')}
                       </p>
                     </div>
-                    
-                    {/* See More button */}
+
                     <div className="p-4 bg-white bg-opacity-10 rounded-full text-center hover:bg-opacity-20 transition">
                       <p className={`${inter.className} text-xl italic text-white text-opacity-80`}>
                         See More
