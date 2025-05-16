@@ -56,7 +56,7 @@ export async function GET() {
     return NextResponse.json({
       totalProducts,
       totalRevenue,
-      mostSoldProduct: mostSoldProduct || null, // Pastikan null jika tidak ada produk
+      mostSoldProduct: mostSoldProduct || null,
       totalQuantitySold: mostSoldQuantity,
     });
   } catch (error) {
