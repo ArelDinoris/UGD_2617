@@ -20,7 +20,6 @@ model Produk {
 model Transaksi {
   id              Int      @id @default(autoincrement())
   produkId        Int
-  produk          Produk   @relation(fields: [produkId], references: [id])
   customer        String
   tanggal         DateTime @default(now())
   jumlah_beli     Int
@@ -30,4 +29,10 @@ model Transaksi {
   total_bayar     Int
   total_kembalian Int
   status          String
+  produk          Produk   @relation(fields: [produkId], references: [id])
+}
+
+model OrderSequence {
+  id        Int @id @default(autoincrement())
+  lastOrder Int @default(0)
 }
