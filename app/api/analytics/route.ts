@@ -13,7 +13,10 @@ export async function GET() {
       },
     });
 
-    const totalRevenue = transactions.reduce((sum, trx) => sum + trx.total_harga, 0);
+    // Tambahkan tipe pada 'sum' dan 'trx'
+    const totalRevenue = transactions.reduce((sum: number, trx: { total_harga: number }) => {
+      return sum + trx.total_harga;
+    }, 0);
 
     // Hitung total jumlah_beli per produkId
     const salesMap: Record<number, number> = {};
