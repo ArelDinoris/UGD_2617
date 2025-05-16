@@ -1,20 +1,29 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/app/lib/prisma';
 
+// Definisikan interface untuk transaksi
+interface Transaction {
+  produkId: number;
+  jumlah_beli: number;
+  total_harga: number;
+}
+
 export async function GET() {
   try {
+    // Hitung total produk
     const totalProducts = await prisma.produk.count();
 
+    // Ambil data transaksi dengan tipe eksplisit
     const transactions = await prisma.transaksi.findMany({
       select: {
         produkId: true,
         jumlah_beli: true,
         total_harga: true,
       },
-    });
+    }) as Transaction[];
 
-    // Tentukan tipe parameter sum dan trx agar tidak error
-    const totalRevenue = transactions.reduce((sum: number, trx: { total_harga: number }) => {
+    // Hitung total pendapatan
+    const totalRevenue = transactions.reduce((sum: number, trx: Transaction) => {
       return sum + trx.total_harga;
     }, 0);
 
@@ -36,19 +45,25 @@ export async function GET() {
       }
     }
 
-    const mostSoldProduct = await prisma.produk.findUnique({
-      where: { id: mostSoldProductId },
-    });
+    // Ambil detail produk terlaris, tangani jika tidak ada produk terlaris
+    const mostSoldProduct = mostSoldProductId
+      ? await prisma.produk.findUnique({
+          where: { id: mostSoldProductId },
+        })
+      : null;
 
+    // Kembalikan respons JSON
     return NextResponse.json({
       totalProducts,
       totalRevenue,
-      mostSoldProduct,
+      mostSoldProduct: mostSoldProduct || null, // Pastikan null jika tidak ada produk
       totalQuantitySold: mostSoldQuantity,
     });
-
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Gagal mengambil data analytics' },
+      { status: 500 },
+    );
   }
 }
