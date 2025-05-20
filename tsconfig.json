@@ -30,6 +30,6 @@
     ".next/types/**/*.ts",
     "app/lib/placeholder-data.ts",
     "scripts/seed.js"
-, "app/dashboardutama/salesdetails", "prisma/seed.js"  ],
+, "app/dashboardutama/salesdetails", "prisma/seed.js", "app/dashboardutama/components/CustomerChart.jsx"  ],
   "exclude": ["node_modules"]
 }

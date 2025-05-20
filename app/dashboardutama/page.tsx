@@ -37,6 +37,10 @@ interface Transaction {
   tanggal: string;
 }
 
+const SkeletonBox = ({ className = '' }: { className?: string }) => (
+  <div className={`animate-pulse bg-gray-700 rounded-md ${className}`} aria-hidden="true" />
+);
+
 const DashboardUtamaPage = () => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -59,8 +63,18 @@ const DashboardUtamaPage = () => {
         setTransactions(transactionsData);
 
         const months = [
-          'January', 'February', 'March', 'April', 'May', 'June',
-          'July', 'August', 'September', 'October', 'November', 'December',
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
         ];
         const incomeByMonth = new Array(12).fill(0);
         const customersByMonth = new Array(12).fill(0);
@@ -71,13 +85,16 @@ const DashboardUtamaPage = () => {
           const monthIndex = date.getMonth();
           incomeByMonth[monthIndex] += item.total_harga;
 
-          if (!uniqueCustomers.has(`${item.customer}-${monthIndex}`)) {
+          const customerKey = `${item.customer}-${monthIndex}`;
+          if (!uniqueCustomers.has(customerKey)) {
             customersByMonth[monthIndex] += 1;
-            uniqueCustomers.add(`${item.customer}-${monthIndex}`);
+            uniqueCustomers.add(customerKey);
           }
         });
 
-        const filteredMonths = months.filter((_, index) => incomeByMonth[index] > 0 || customersByMonth[index] > 0);
+        const filteredMonths = months.filter(
+          (_, index) => incomeByMonth[index] > 0 || customersByMonth[index] > 0
+        );
         const filteredIncome = incomeByMonth.filter((val) => val > 0);
         const filteredCustomers = customersByMonth.filter((val) => val > 0);
 
@@ -95,7 +112,7 @@ const DashboardUtamaPage = () => {
   }, []);
 
   const incomeChartData = {
-    labels: labels,
+    labels,
     datasets: [
       {
         label: 'Income (Rp)',
@@ -109,7 +126,7 @@ const DashboardUtamaPage = () => {
   };
 
   const customerChartData = {
-    labels: labels,
+    labels,
     datasets: [
       {
         label: 'Unique Customers',
@@ -158,26 +175,50 @@ const DashboardUtamaPage = () => {
   };
 
   if (loading) {
-    return <div className="text-center py-10 text-white">Loading dashboard data...</div>;
+    return (
+      <div className="space-y-8">
+        {/* Skeleton for Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, idx) => (
+            <SkeletonBox key={idx} className="h-24" />
+          ))}
+        </div>
+
+        {/* Skeleton for Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <SkeletonBox className="h-64 rounded-3xl" />
+          <SkeletonBox className="h-64 rounded-3xl" />
+        </div>
+
+        {/* Skeleton for Best-Selling Product & Recent Orders */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <SkeletonBox className="h-48 rounded-3xl" />
+          <SkeletonBox className="h-48 rounded-3xl" />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-8">
-      {/* RINGKASAN */}
+      {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { title: 'Total Products', value: analytics?.totalProducts || 0 },
-          { title: 'Total Transactions', value: transactions.length || 0 },
-          { title: 'Total Income', value: `Rp ${analytics?.totalRevenue?.toLocaleString() || 0}` },
+          { title: 'Total Products', value: analytics?.totalProducts ?? 0 },
+          { title: 'Total Transactions', value: transactions.length },
+          { title: 'Total Income', value: `Rp ${analytics?.totalRevenue?.toLocaleString() ?? '0'}` },
         ].map((item, idx) => (
-          <div key={idx} className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl text-center shadow-lg flex flex-col items-center transition hover:scale-[1.01] cursor-pointer">
+          <div
+            key={idx}
+            className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl text-center shadow-lg flex flex-col items-center transition hover:scale-[1.01] cursor-pointer"
+          >
             <h2 className="text-lg font-semibold text-white">{item.title}</h2>
             <p className="text-3xl font-bold mt-2 text-white">{item.value}</p>
           </div>
         ))}
       </div>
 
-      {/* GRAFIK */}
+      {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl shadow-lg">
           <h2 className="text-lg font-semibold mb-4 text-white">Income Graph / Month</h2>
@@ -231,10 +272,10 @@ const DashboardUtamaPage = () => {
         </div>
       </div>
 
-      {/* PRODUK TERLARIS */}
+      {/* Best-Selling Product & Recent Orders */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl shadow-lg text-white">
-          <h2 className="text-lg font-semibold mb-4">Most Products Sold</h2>
+          <h2 className="text-lg font-semibold mb-4">Most Sold Product</h2>
           {analytics?.mostSoldProduct ? (
             <div className="flex items-center space-x-4">
               <div className="relative w-24 h-24">
@@ -262,10 +303,15 @@ const DashboardUtamaPage = () => {
           {transactions.length > 0 ? (
             <div className="space-y-3">
               {transactions.slice(0, 3).map((transaction) => (
-                <div key={transaction.id} className="flex justify-between pb-2 border-b border-gray-600">
+                <div
+                  key={transaction.id}
+                  className="flex justify-between pb-2 border-b border-gray-600"
+                >
                   <div>
                     <p className="font-medium">{transaction.customer}</p>
-                    <p className="text-sm text-gray-300">{new Date(transaction.tanggal).toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-300">
+                      {new Date(transaction.tanggal).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="font-medium">Rp {transaction.total_harga.toLocaleString()}</p>
