@@ -195,8 +195,96 @@ const SalesPage = () => {
     }
   };
 
+  // Loading Skeleton Component for a Single Product
+  const ProductSkeleton = () => (
+    <div className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl text-center shadow-lg flex flex-col items-center animate-pulse">
+      <div className="relative w-32 h-32 mb-3 bg-slate-700 rounded-full"></div>
+      <div className="h-6 bg-slate-700 rounded w-3/4 mt-4"></div>
+      <div className="h-4 bg-slate-700 rounded w-1/2 mt-2"></div>
+      <div className="h-4 bg-slate-700 rounded w-1/3 mt-2"></div>
+      <div className="h-5 bg-slate-700 rounded w-2/5 mt-2"></div>
+    </div>
+  );
+
+  // Loading Skeleton for Receipt
+  const ReceiptSkeleton = () => (
+    <div className="w-full rounded-3xl p-4 bg-white text-blue-950">
+      <div className="rounded-2xl p-6 flex flex-col justify-between shadow-lg h-full animate-pulse">
+        <div>
+          <div className="h-8 bg-slate-200 rounded mx-auto w-1/3 mb-2"></div>
+          <div className="h-3 bg-slate-200 rounded mx-auto w-3/4 mb-1"></div>
+          <div className="h-3 bg-slate-200 rounded mx-auto w-2/3 mb-4"></div>
+
+          <div className="space-y-2 mb-4">
+            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+            <div className="h-8 bg-slate-200 rounded w-full"></div>
+            <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+          </div>
+
+          <div className="space-y-3 my-4">
+            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+            <div className="flex flex-col space-y-2">
+              <div className="h-12 bg-slate-200 rounded w-full"></div>
+              <div className="h-12 bg-slate-200 rounded w-full"></div>
+            </div>
+          </div>
+
+          <div className="space-y-2 mt-4">
+            <div className="h-4 bg-slate-200 rounded w-3/5"></div>
+            <div className="h-4 bg-slate-200 rounded w-2/5"></div>
+            <div className="h-8 bg-slate-200 rounded w-3/4"></div>
+            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+          </div>
+
+          <div className="h-4 bg-slate-200 rounded mx-auto w-2/3 mt-8"></div>
+          <div className="h-4 bg-slate-200 rounded mx-auto w-1/2 mt-1"></div>
+        </div>
+
+        <div className="flex flex-col gap-3 mt-6">
+          <div className="h-10 bg-blue-300 rounded-xl"></div>
+          <div className="h-10 bg-yellow-300 rounded-xl"></div>
+          <div className="h-10 bg-green-300 rounded-xl"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Full Page Loading Skeleton
   if (loading) {
-    return <div className="min-h-screen p-6 font-sans">Loading products...</div>;
+    return (
+      <div className="min-h-screen p-6 font-sans space-y-6">
+        {/* HEADER SKELETON */}
+        <div className="flex flex-col md:flex-row justify-between gap-6">
+          {/* Sort & Search Skeleton */}
+          <div className="w-full md:w-2/3 rounded-3xl p-4 space-y-4 bg-[#303477] animate-pulse">
+            <div className="flex items-center gap-4">
+              <div className="h-10 bg-slate-200 rounded-xl w-24"></div>
+              <div className="h-10 bg-slate-200 rounded-xl w-full"></div>
+            </div>
+          </div>
+
+          {/* POS Title Skeleton */}
+          <div className="w-full md:w-1/3 rounded-3xl p-4 flex justify-center items-center bg-white animate-pulse">
+            <div className="h-8 bg-slate-200 rounded w-3/4"></div>
+          </div>
+        </div>
+
+        {/* MAIN CONTENT SKELETON */}
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Product Grid Skeleton */}
+          <div className="w-full md:w-2/3 rounded-3xl p-6 grid grid-cols-2 gap-6 bg-[#303477]">
+            {[...Array(6)].map((_, idx) => (
+              <ProductSkeleton key={idx} />
+            ))}
+          </div>
+
+          {/* Receipt Skeleton */}
+          <div className="w-full md:w-1/3">
+            <ReceiptSkeleton />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
