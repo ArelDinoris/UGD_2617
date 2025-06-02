@@ -1,19 +1,28 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/app/lib/prisma';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    const products = await prisma.produk.findMany();
-    return NextResponse.json(products);
+    const produk = await prisma.produk.findMany();
+    return NextResponse.json(produk);
   } catch (error) {
-    console.error('Error fetching products:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Gagal mengambil produk' }, { status: 500 });
   }
 }
 
-export async function POST() {
-  return NextResponse.json({ message: 'Method POST not allowed' }, { status: 405 });
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { nama, harga, stok, warna, foto } = body;
+
+    const newProduk = await prisma.produk.create({
+      data: { nama, harga, stok, warna, foto },
+    });
+
+    return NextResponse.json(newProduk, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Gagal menambahkan produk' }, { status: 500 });
+  }
 }
