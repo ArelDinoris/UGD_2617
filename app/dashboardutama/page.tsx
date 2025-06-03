@@ -6,6 +6,7 @@ import AnalyticsCharts from './components/AnalyticsCharts';
 import BestSellingProduct from './components/BestSellingProduct';
 import RecentOrders from './components/RecentOrders';
 import { getAnalyticsData, getTransactionsData, prepareChartData } from './actions';
+import DashboardProductCRUD from './components/DashboardProductCRUD';
 
 export default async function DashboardUtamaPage() {
   return (
@@ -35,6 +36,12 @@ export default async function DashboardUtamaPage() {
         <Suspense fallback={<DashboardSkeleton type="orders" count={1} />}>
           <RecentOrders />
         </Suspense>
+
+        {/* CRUD Produk Section */}
+        <Suspense fallback={<div>Loading Produk...</div>}>
+          <DashboardProductCRUD />
+        </Suspense>
+
       </div>
     </div>
   );
