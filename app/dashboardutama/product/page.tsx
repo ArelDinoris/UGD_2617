@@ -57,39 +57,133 @@ const InputSkeleton = ({ width, height }: { width: string; height: string }) => 
 
 const ProductPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [showAddPopup, setShowAddPopup] = useState(false);
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formData, setFormData] = useState({
+    nama: '',
+    harga: 0,
+    stok: 0,
+    warna: '',
+    foto: '',
+    deskripsi: '',
+  });
 
   useEffect(() => {
-    setLoading(true);
-    fetch('/api/product')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch products');
-        return res.json();
-      })
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError('Failed to load products');
-        setLoading(false);
-      });
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/product');
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const data = await res.json();
+      setProducts(data);
+      setFilteredProducts(data);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load products');
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    const filtered = products.filter((product) =>
+      product.nama.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredProducts(filtered);
+  };
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'harga' || name === 'stok' ? parseInt(value) || 0 : value,
+    }));
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (!response.ok) throw new Error('Failed to add product');
+      const newProduct = await response.json();
+      setProducts([...products, newProduct]);
+      setFilteredProducts([...products, newProduct]);
+      setFormData({ nama: '', harga: 0, stok: 0, warna: '', foto: '', deskripsi: '' });
+      setShowAddPopup(false);
+    } catch (err) {
+      alert('Error adding product');
+    }
+  };
 
   const handleEditClick = (product: Product) => {
     setCurrentProduct(product);
+    setFormData({
+      nama: product.nama,
+      harga: product.harga,
+      stok: product.stok,
+      warna: product.warna,
+      foto: product.foto,
+      deskripsi: product.deskripsi || '',
+    });
     setShowEditPopup(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentProduct) return;
+    try {
+      const response = await fetch('/api/product', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentProduct.id, ...formData }),
+      });
+      if (!response.ok) throw new Error('Failed to update product');
+      const updatedProduct = await response.json();
+      setProducts(products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+      setFilteredProducts(filteredProducts.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+      setShowEditPopup(false);
+      setCurrentProduct(null);
+    } catch (err) {
+      alert('Error updating product');
+    }
   };
 
   const handleDeleteClick = (product: Product) => {
     setCurrentProduct(product);
     setShowDeletePopup(true);
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!currentProduct) return;
+    try {
+      const response = await fetch('/api/product', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentProduct.id }),
+      });
+      if (!response.ok) throw new Error('Failed to delete product');
+      setProducts(products.filter((p) => p.id !== currentProduct.id));
+      setFilteredProducts(filteredProducts.filter((p) => p.id !== currentProduct.id));
+      setShowDeletePopup(false);
+      setCurrentProduct(null);
+    } catch (err) {
+      alert('Error deleting product');
+    }
   };
 
   return (
@@ -116,6 +210,8 @@ const ProductPage = () => {
                   type="text"
                   placeholder="Search Products..."
                   className="w-full pl-10 pr-4 py-2 bg-white rounded-lg"
+                  value={searchQuery}
+                  onChange={handleSearch}
                 />
               </>
             )}
@@ -142,8 +238,8 @@ const ProductPage = () => {
           ))
         ) : error ? (
           <div className="col-span-2 text-center text-white py-8">{error}</div>
-        ) : products.length > 0 ? (
-          products.map((product) => (
+        ) : filteredProducts.length > 0 ? (
+          filteredProducts.map((product) => (
             <div key={product.id} className="bg-[#242870] rounded-2xl p-6">
               <div className="flex flex-row">
                 <div className="flex items-center justify-center w-1/2">
@@ -192,47 +288,187 @@ const ProductPage = () => {
         )}
       </div>
 
-      {/* Popups */}
+      {/* Add Product Popup */}
       {showAddPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-            {/* Add form here */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowAddPopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
-                Save
-              </button>
-            </div>
+            <form onSubmit={handleAddSubmit}>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Name</label>
+                <input
+                  type="text"
+                  name="nama"
+                  value={formData.nama}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Price (Rp)</label>
+                <input
+                  type="number"
+                  name="harga"
+                  value={formData.harga}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Stock</label>
+                <input
+                  type="number"
+                  name="stok"
+                  value={formData.stok}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Color</label>
+                <input
+                  type="text"
+                  name="warna"
+                  value={formData.warna}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Image URL</label>
+                <input
+                  type="text"
+                  name="foto"
+                  value={formData.foto}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Description</label>
+                <textarea
+                  name="deskripsi"
+                  value={formData.deskripsi}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                />
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPopup(false)}
+                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
+      {/* Edit Product Popup */}
       {showEditPopup && currentProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Edit Product</h2>
-            {/* Edit form here */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowEditPopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                Update
-              </button>
-            </div>
+            <form onSubmit={handleEditSubmit}>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Name</label>
+                <input
+                  type="text"
+                  name="nama"
+                  value={formData.nama}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Price (Rp)</label>
+                <input
+                  type="number"
+                  name="harga"
+                  value={formData.harga}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Stock</label>
+                <input
+                  type="number"
+                  name="stok"
+                  value={formData.stok}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Color</label>
+                <input
+                  type="text"
+                  name="warna"
+                  value={formData.warna}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Image URL</label>
+                <input
+                  type="text"
+                  name="foto"
+                  value={formData.foto}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-1">Description</label>
+                <textarea
+                  name="deskripsi"
+                  value={formData.deskripsi}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                />
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditPopup(false)}
+                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                  Update
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
+      {/* Delete Product Popup */}
       {showDeletePopup && currentProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -245,7 +481,10 @@ const ProductPage = () => {
               >
                 Cancel
               </button>
-              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+              <button
+                onClick={handleDeleteSubmit}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+              >
                 Delete
               </button>
             </div>

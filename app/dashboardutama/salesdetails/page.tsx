@@ -91,20 +91,20 @@ export default function SalesDetailPage() {
         }
         if (Array.isArray(data)) {
           const formattedData: TransactionData[] = data.map(item => ({
-            id: item.id,
-            date: new Date(item.tanggal).toLocaleDateString('en-US', {
+            id: item.id || 0,
+            date: item.tanggal ? new Date(item.tanggal).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric'
-            }),
-            orderId: `OBZ-${item.id.toString().padStart(3, '0')}`,
-            productId: item.produkId,
-            productName: item.produk.nama,
-            customer: item.customer,
-            quantity: item.jumlah_beli,
-            total: item.total_harga,
-            method: item.metode_bayar,
-            status: item.status
+            }) : 'Invalid Date',
+            orderId: `OBZ-${(item.id || 0).toString().padStart(3, '0')}`,
+            productId: item.produkId || 0,
+            productName: item.produk?.nama || 'Unknown Product',
+            customer: item.customer || 'Unknown Customer',
+            quantity: item.jumlah_beli || 0,
+            total: item.total_harga || 0,
+            method: item.metode_bayar || 'Unknown Method',
+            status: item.status || 'Unknown Status'
           }));
           setSalesDetailData(formattedData);
         }
@@ -122,7 +122,7 @@ export default function SalesDetailPage() {
     const sortedData = [...salesDetailData].sort((a, b) => {
       return sortOrder === 'asc'
         ? a.orderId.localeCompare(b.orderId)
-        : b.orderId.localeCompare(b.orderId);
+        : b.orderId.localeCompare(a.orderId);
     });
     setSalesDetailData(sortedData);
     setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -132,11 +132,45 @@ export default function SalesDetailPage() {
     setSearchQuery(event.target.value);
   };
 
-  const filteredData = salesDetailData.filter(item =>
-    item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.orderId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // PERBAIKAN UTAMA: Fungsi pencarian multi-field yang lebih akurat
+  const filteredData = salesDetailData.filter(item => {
+    // Jika search query kosong, tampilkan semua data
+    if (!searchQuery || searchQuery.trim() === '') {
+      return true;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Pencarian di semua field yang diminta
+    return (
+      // Search by Date
+      (item.date?.toLowerCase() || '').includes(query) ||
+      
+      // Search by Order ID
+      (item.orderId?.toLowerCase() || '').includes(query) ||
+      
+      // Search by Product ID (convert to string for search)
+      item.productId?.toString().includes(query) ||
+      
+      // Search by Customer
+      (item.customer?.toLowerCase() || '').includes(query) ||
+      
+      // Search by Product Name
+      (item.productName?.toLowerCase() || '').includes(query) ||
+      
+      // Search by Quantity (convert to string for search)
+      item.quantity?.toString().includes(query) ||
+      
+      // Search by Total (convert to string for search)
+      item.total?.toString().includes(query) ||
+      
+      // Search by Method Payment
+      (item.method?.toLowerCase() || '').includes(query) ||
+      
+      // Search by Status
+      (item.status?.toLowerCase() || '').includes(query)
+    );
+  });
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -158,7 +192,7 @@ export default function SalesDetailPage() {
             produkId: formData.productId,
             customer: formData.customer,
             jumlah_beli: formData.quantity,
-            warna: '',
+            warna: 'N/A',
             total_harga: formData.total,
             metode_bayar: formData.method,
             total_bayar: formData.total,
@@ -167,7 +201,8 @@ export default function SalesDetailPage() {
           }]),
         });
         if (!response.ok) throw new Error('Failed to add transaction');
-        const newId = Date.now();
+        const newTransaction = await response.json();
+        const newId = newTransaction[0].id;
         setSalesDetailData(prev => [
           ...prev,
           {
@@ -181,27 +216,6 @@ export default function SalesDetailPage() {
             })
           }
         ]);
-      } else if (modalMode === 'edit') {
-        const response = await fetch(`/api/transaction/${formData.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            produkId: formData.productId,
-            customer: formData.customer,
-            jumlah_beli: formData.quantity,
-            total_harga: formData.total,
-            metode_bayar: formData.method,
-            status: formData.status
-          }),
-        });
-        if (!response.ok) throw new Error('Failed to update transaction');
-        setSalesDetailData(prev =>
-          prev.map(item =>
-            item.id === formData.id ? formData : item
-          )
-        );
       }
       closeModal();
     } catch (err: any) {
@@ -211,12 +225,7 @@ export default function SalesDetailPage() {
 
   const openModal = (mode: 'add' | 'edit' | 'delete') => {
     setModalMode(mode);
-    if (mode === 'edit' && selectedItems.length === 1) {
-      const selectedItem = salesDetailData.find(item => item.id === selectedItems[0]);
-      if (selectedItem) {
-        setFormData(selectedItem);
-      }
-    } else if (mode === 'add') {
+    if (mode === 'add') {
       setFormData({
         id: 0,
         date: '',
@@ -237,25 +246,10 @@ export default function SalesDetailPage() {
     setModalOpen(false);
   };
 
-  const handleDelete = async () => {
-    try {
-      for (const id of selectedItems) {
-        const response = await fetch(`/api/transaction/${id}`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) throw new Error(`Failed to delete transaction ${id}`);
-      }
-      setSalesDetailData(prev => prev.filter(item => !selectedItems.includes(item.id)));
-      setSelectedItems([]);
-      closeModal();
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-    }
-  };
-
-  const handleCheckboxChange = (id: number) => {
+  const handleCheckboxChange = (id: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = event.target.checked;
     setSelectedItems(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+      checked ? [...prev, id] : prev.filter(item => item !== id)
     );
   };
 
@@ -278,8 +272,6 @@ export default function SalesDetailPage() {
               <div className="h-9 w-full bg-gray-600 rounded-full" />
             </div>
             <div className="h-9 w-32 bg-gray-600 rounded-md" />
-            <div className="h-9 w-32 bg-gray-600 rounded-md" />
-            <div className="h-9 w-32 bg-gray-600 rounded-md" />
           </div>
         ) : (
           <>
@@ -291,7 +283,7 @@ export default function SalesDetailPage() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search by customer, product, or order ID..."
+                  placeholder="Search by date, order ID, product, customer, quantity, total, method, or status..."
                   value={searchQuery}
                   onChange={handleSearch}
                   className="bg-white text-black pl-10 pr-4 py-2 h-9 rounded-full w-[700px] text-sm"
@@ -304,24 +296,20 @@ export default function SalesDetailPage() {
               >
                 <span className="text-base">+</span> Add
               </button>
-              <button
-                className={`bg-orange-500 hover:bg-orange-600 text-white px-20 h-9 rounded-md flex items-center gap-1 text-sm font-semibold ${selectedItems.length !== 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={() => selectedItems.length === 1 && openModal('edit')}
-                disabled={selectedItems.length !== 1}
-              >
-                <FaPen className="text-sm" /> Edit
-              </button>
-              <button
-                className={`bg-red-600 hover:bg-red-700 text-white px-20 h-9 rounded-md flex items-center gap-1 text-sm font-semibold ${selectedItems.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={() => selectedItems.length > 0 && openModal('delete')}
-                disabled={selectedItems.length === 0}
-              >
-                <FaTrash className="text-sm" /> Delete
-              </button>
             </div>
           </>
         )}
       </div>
+      
+      {/* Search Results Info */}
+      {!loading && searchQuery && (
+        <div className="px-4 pb-2">
+          <p className="text-sm text-gray-300">
+            Found {filteredData.length} result{filteredData.length !== 1 ? 's' : ''} for "{searchQuery}"
+          </p>
+        </div>
+      )}
+
       <div className="px-4 pb-4">
         <div className="bg-[#2A256A] rounded-lg overflow-hidden">
           {loading ? (
@@ -366,7 +354,7 @@ export default function SalesDetailPage() {
                 {filteredData.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="p-4 text-center">
-                      No transactions found.
+                      {searchQuery ? `No transactions found matching "${searchQuery}"` : "No transactions found."}
                     </td>
                   </tr>
                 ) : (
@@ -376,7 +364,7 @@ export default function SalesDetailPage() {
                         <input
                           type="checkbox"
                           checked={selectedItems.includes(item.id)}
-                          onChange={() => handleCheckboxChange(item.id)}
+                          onChange={(e) => handleCheckboxChange(item.id, e)}
                           className="form-checkbox"
                         />
                       </td>
@@ -400,129 +388,98 @@ export default function SalesDetailPage() {
           )}
         </div>
       </div>
-      {modalOpen && (
+      {modalOpen && modalMode === 'add' && (
         <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-50 flex justify-center items-center">
           <div className="bg-white rounded-lg p-8 w-[600px] text-black">
-            <h2 className="text-lg font-semibold mb-4">
-              {modalMode === 'add' && 'Add Sale'}
-              {modalMode === 'edit' && 'Edit Sale'}
-              {modalMode === 'delete' && 'Delete Confirmation'}
-            </h2>
-            {modalMode !== 'delete' && (
-              <div className="mb-4 space-y-3">
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Customer</label>
-                  <input
-                    type="text"
-                    name="customer"
-                    value={formData.customer}
-                    onChange={handleFormChange}
-                    className="border p-2 w-full rounded-md"
-                    placeholder="Customer name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Product</label>
-                  <select
-                    name="productId"
-                    value={formData.productId}
-                    onChange={handleFormChange}
-                    className="border p-2 w-full rounded-md"
-                  >
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.nama} (ID: {product.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Quantity</label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    value={formData.quantity}
-                    onChange={handleFormChange}
-                    min="1"
-                    className="border p-2 w-full rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Total Price</label>
-                  <input
-                    type="number"
-                    name="total"
-                    value={formData.total}
-                    onChange={handleFormChange}
-                    min="0"
-                    className="border p-2 w-full rounded-md"
-                    placeholder="Price in Rupiah"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Payment Method</label>
-                  <select
-                    name="method"
-                    value={formData.method}
-                    onChange={handleFormChange}
-                    className="border p-2 w-full rounded-md"
-                  >
-                    <option value="QRIS">QRIS</option>
-                    <option value="Cash">Cash</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleFormChange}
-                    className="border p-2 w-full rounded-md"
-                  >
-                    <option value="Done">Done</option>
-                    <option value="Pending">Pending</option>
-                  </select>
-                </div>
+            <h2 className="text-lg font-semibold mb-4">Add Sale</h2>
+            <div className="mb-4 space-y-3">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Customer</label>
+                <input
+                  type="text"
+                  name="customer"
+                  value={formData.customer}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                  placeholder="Customer name"
+                />
               </div>
-            )}
-            {modalMode === 'delete' && (
-              <div className="mb-4">
-                <p>Are you sure you want to delete {selectedItems.length > 1 ? 'these transactions' : 'this transaction'}?</p>
-                <p className="text-red-500 text-sm mt-2">This action cannot be undone.</p>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Product</label>
+                <select
+                  name="productId"
+                  value={formData.productId}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                >
+                  {products.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.nama} (ID: {product.id})
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-semibold mb-1">Quantity</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleFormChange}
+                  min="1"
+                  className="border p-2 w-full rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Total Price</label>
+                <input
+                  type="number"
+                  name="total"
+                  value={formData.total}
+                  onChange={handleFormChange}
+                  min="0"
+                  className="border p-2 w-full rounded-md"
+                  placeholder="Price in Rupiah"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Payment Method</label>
+                <select
+                  name="method"
+                  value={formData.method}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                >
+                  <option value="QRIS">QRIS</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleFormChange}
+                  className="border p-2 w-full rounded-md"
+                >
+                  <option value="Done">Done</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </div>
+            </div>
             <div className="flex justify-end gap-2 mt-6">
-              {modalMode === 'delete' ? (
-                <>
-                  <button
-                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400"
-                    onClick={closeModal}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
-                    onClick={handleDelete}
-                  >
-                    Delete
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400"
-                    onClick={closeModal}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                    onClick={handleFormSubmit}
-                  >
-                    Save
-                  </button>
-                </>
-              )}
+              <button
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400"
+                onClick={closeModal}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                onClick={handleFormSubmit}
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>

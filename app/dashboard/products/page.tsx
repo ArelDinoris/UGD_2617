@@ -1,7 +1,7 @@
 'use client';
 
-import { inter } from '@/app/ui/fonts';
 import Image from 'next/image';
+import { FaSearch, FaSort, FaEdit, FaTrash } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 
 interface Product {
@@ -14,147 +14,246 @@ interface Product {
   deskripsi?: string;
 }
 
-const backgroundImages = [
-  { src: "/headphone.png", className: "top-10 left-10 rotate-12" },
-  { src: "/airbuds.png", className: "bottom-10 left-10 -rotate-12" },
-  { src: "/earphone.png", className: "top-10 right-10 -rotate-12" },
-  { src: "/airpods.png", className: "bottom-10 right-10 rotate-12" },
-];
+const ProductSkeleton = () => {
+  return (
+    <div className="bg-[#242870] rounded-2xl p-6 animate-pulse">
+      <div className="flex flex-row">
+        <div className="flex items-center justify-center w-1/2">
+          <div className="w-32 h-32 bg-gray-600 rounded-lg" />
+        </div>
+        <div className="flex flex-col items-end justify-center text-white w-1/2 space-y-2">
+          <div className="w-3/4 h-5 bg-gray-500 rounded" />
+          <div className="w-1/2 h-4 bg-gray-500 rounded" />
+          <div className="w-4 h-4 bg-gray-400 rounded-full my-2" />
+          <div className="w-1/2 h-4 bg-gray-500 rounded" />
+          <div className="w-2/3 h-6 bg-gray-400 rounded" />
+        </div>
+      </div>
+      <div className="mt-4 space-y-3">
+        <div className="w-full h-10 bg-gray-500 rounded" />
+        <div className="w-full h-10 bg-gray-500 rounded" />
+      </div>
+    </div>
+  );
+};
 
-export default function Page() {
+const ButtonSkeleton = ({ width, height }: { width: string; height: string }) => {
+  return (
+    <div
+      className={`bg-gray-500 rounded flex items-center justify-center animate-pulse`}
+      style={{ width, height }}
+    />
+  );
+};
+
+const InputSkeleton = ({ width, height }: { width: string; height: string }) => {
+  return (
+    <div
+      className={`bg-gray-500 rounded animate-pulse`}
+      style={{ width, height }}
+    />
+  );
+};
+
+const ProductPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedColors, setSelectedColors] = useState<Record<number, string>>({});
+  const [showAddPopup, setShowAddPopup] = useState(false);
+  const [showEditPopup, setShowEditPopup] = useState(false);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setLoading(true);
     fetch('/api/product')
-      .then(res => {
+      .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch products');
         return res.json();
       })
-      .then(data => {
+      .then((data) => {
         setProducts(data);
-        // Default selected color: gunakan warna pertama yang tersedia (jika ada)
-        const colorDefaults: Record<number, string> = {};
-        data.forEach((prod: Product) => {
-          const warna = prod.warna.split(',')[0];
-          colorDefaults[prod.id] = warna;
-        });
-        setSelectedColors(colorDefaults);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
-        setError('Gagal memuat produk');
+        setError('Failed to load products');
         setLoading(false);
       });
   }, []);
 
-  const handleColorSelect = (productId: number, color: string) => {
-    setSelectedColors(prev => ({
-      ...prev,
-      [productId]: color
-    }));
+  const handleEditClick = (product: Product) => {
+    setCurrentProduct(product);
+    setShowEditPopup(true);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        Loading products...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-500">
-        {error}
-      </div>
-    );
-  }
+  const handleDeleteClick = (product: Product) => {
+    setCurrentProduct(product);
+    setShowDeletePopup(true);
+  };
 
   return (
-    <div className="relative p-4 text-center min-h-screen text-white overflow-visible">
-      {/* Background images */}
-      {backgroundImages.map((img, index) => (
-        <div 
-          key={index}
-          className={`absolute ${img.className} w-[500px] h-[500px] z-0 drop-shadow-[0_20px_25px_rgba(0,0,0,1)]`}
-        >
-          <Image
-            src={img.src}
-            alt="Background product"
-            fill
-            className="object-contain"
-          />
-        </div>
-      ))}
+    <div className="min-h-screen bg-[#1a1f4d] p-4">
+      {/* Search and Add Bar */}
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-4 flex-1">
+          {loading ? (
+            <ButtonSkeleton width="90px" height="40px" />
+          ) : (
+            <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg">
+              <FaSort className="text-gray-600" />
+              <span>Sort</span>
+            </button>
+          )}
 
-      <div className="relative z-10">
-        <h2 className={`${inter.className} text-5xl font-bold text-white`}>
-          Our Products Will Guarantee Your Satisfaction.
-        </h2>
-        <p className={`${inter.className} mt-2 text-3xl mx-auto`}>
-          Our Products Are Guaranteed Authentic And Come With A Warranty, Ensuring Quality, Reliability, And Peace Of Mind With Every Purchase.
-        </p>
-        
-        <div className='flex justify-center'>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-16 w-full">
-            {products.map((product) => (
-              <div key={product.id} className="flex flex-col h-full">
-                <div className="flex-grow bg-[#303477] border border-white border-opacity-20 rounded-lg p-6">
-                  <div className="h-full flex flex-col">
-                    <div className="flex-grow mb-6 p-4 bg-white bg-opacity-10 rounded-2xl flex flex-col items-center">
-                      <div className="relative aspect-square w-full max-w-[250px] flex-grow">
-                        <Image 
-                          src={product.foto} 
-                          alt={product.nama} 
-                          fill
-                          className="object-contain"
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                        />
-                      </div>
-                      
-                      <h3 className={`${inter.className} text-2xl font-semibold text-white mt-4`}>
-                        {product.nama}
-                      </h3>
-
-                      {/* Color buttons */}
-                      <div className="flex justify-center space-x-4 mb-2 mt-2">
-                        {product.warna.split(',').map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => handleColorSelect(product.id, color)}
-                            className={`w-8 h-8 rounded-full border ${
-                              selectedColors[product.id] === color
-                                ? 'ring-2 ring-blue-400'
-                                : 'border-gray-300'
-                            }`}
-                            style={{ backgroundColor: color }}
-                            aria-label={color}
-                            title={color}
-                          />
-                        ))}
-                      </div>
-
-                      <p className={`${inter.className} text-xl italic text-white text-opacity-80`}>
-                        Rp {product.harga.toLocaleString('id-ID')}
-                      </p>
-                    </div>
-
-                    <div className="p-4 bg-white bg-opacity-10 rounded-full text-center hover:bg-opacity-20 transition">
-                      <p className={`${inter.className} text-xl italic text-white text-opacity-80`}>
-                        See More
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="relative flex-1">
+            {loading ? (
+              <InputSkeleton width="100%" height="40px" />
+            ) : (
+              <>
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search Products..."
+                  className="w-full pl-10 pr-4 py-2 bg-white rounded-lg"
+                />
+              </>
+            )}
           </div>
         </div>
+
+        {loading ? (
+          <ButtonSkeleton width="80px" height="40px" />
+        ) : (
+          <button
+            onClick={() => setShowAddPopup(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium"
+          >
+            + Add
+          </button>
+        )}
       </div>
+
+      {/* Product List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => (
+            <ProductSkeleton key={index} />
+          ))
+        ) : error ? (
+          <div className="col-span-2 text-center text-white py-8">{error}</div>
+        ) : products.length > 0 ? (
+          products.map((product) => (
+            <div key={product.id} className="bg-[#242870] rounded-2xl p-6">
+              <div className="flex flex-row">
+                <div className="flex items-center justify-center w-1/2">
+                  <div className="relative w-32 h-32">
+                    <Image
+                      src={product.foto}
+                      alt={product.nama}
+                      layout="fill"
+                      objectFit="contain"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col items-end justify-center text-white w-1/2">
+                  <h3 className="text-xl font-medium">{product.nama}</h3>
+                  <p className="text-gray-300 text-sm mt-1">ID: {product.id}</p>
+                  <div className="flex justify-center my-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: product.warna }}
+                    ></div>
+                  </div>
+                  <p className="text-gray-300">Stock: {product.stok}</p>
+                  <p className="text-lg font-bold">Rp {product.harga.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                <button
+                  onClick={() => handleEditClick(product)}
+                  className="w-full bg-[#e67e22] hover:bg-[#d35400] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
+                >
+                  <FaEdit />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(product)}
+                  className="w-full bg-[#c0392b] hover:bg-[#a93226] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
+                >
+                  <FaTrash />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-2 text-center text-white py-8">No products found.</div>
+        )}
+      </div>
+
+      {/* Popups */}
+      {showAddPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Add New Product</h2>
+            {/* Add form here */}
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowAddPopup(false)}
+                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
+              >
+                Cancel
+              </button>
+              <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditPopup && currentProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Edit Product</h2>
+            {/* Edit form here */}
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowEditPopup(false)}
+                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
+              >
+                Cancel
+              </button>
+              <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeletePopup && currentProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Delete Product</h2>
+            <p>Are you sure you want to delete {currentProduct.nama}?</p>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowDeletePopup(false)}
+                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
+              >
+                Cancel
+              </button>
+              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default ProductPage;
