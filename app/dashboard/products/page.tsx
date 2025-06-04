@@ -35,7 +35,6 @@ export default function Page() {
       })
       .then(data => {
         setProducts(data);
-        // Default selected color: gunakan warna pertama yang tersedia (jika ada)
         const colorDefaults: Record<number, string> = {};
         data.forEach((prod: Product) => {
           const warna = prod.warna.split(',')[0];
