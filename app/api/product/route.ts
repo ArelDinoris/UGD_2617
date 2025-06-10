@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/app/lib/prisma';
 
 export async function GET() {
   try {
@@ -19,11 +17,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { nama, harga, stok, warna, foto } = data;
+    const { nama, harga, stok } = data;
 
-    if (!nama || !harga || !stok || !warna || !foto) {
+    if (!nama || !harga || !stok) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Nama, harga, dan stok wajib diisi' },
         { status: 400 }
       );
     }
@@ -33,8 +31,8 @@ export async function POST(request: Request) {
         nama,
         harga: parseInt(harga),
         stok: parseInt(stok),
-        warna,
-        foto,
+        warna: 'default',
+        foto: 'default.jpg',
       },
     });
 

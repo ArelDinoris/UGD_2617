@@ -23,7 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const interval = setInterval(updateDateTime, 60000); // Update every minute
 
     return () => clearInterval(interval); // Clean up interval on unmount
-  }, []);
+  }, []); 
 
   return (
     <div className="flex flex-col min-h-screen">

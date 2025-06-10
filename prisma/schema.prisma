@@ -19,6 +19,7 @@ model Produk {
 
 model Transaksi {
   id              Int      @id @default(autoincrement())
+  orderId         String?  @unique // Optional unique order ID
   produkId        Int
   customer        String
   tanggal         DateTime @default(now())
