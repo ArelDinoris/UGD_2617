@@ -1,16 +1,18 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    const products = await prisma.produk.findMany();
-    return NextResponse.json(products);
+    const produk = await prisma.produk.findMany({
+      orderBy: { id: "desc" },
+    });
+    return NextResponse.json(produk);
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error("Gagal mengambil produk:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { error: "Gagal mengambil produk" },
       { status: 500 }
     );
   }
@@ -18,90 +20,50 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
-    const { nama, harga, stok, warna, foto } = data;
+    const body = await request.json();
+    const { nama, harga, stok, warna, foto } = body;
 
-    if (!nama || !harga || !stok || !warna || !foto) {
+    if (!nama || harga === undefined || stok === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: "Field nama, harga, dan stok wajib diisi" },
         { status: 400 }
       );
     }
 
-    const product = await prisma.produk.create({
-      data: {
-        nama,
-        harga: parseInt(harga),
-        stok: parseInt(stok),
-        warna,
-        foto,
+    const parsedHarga = parseInt(harga);
+    const parsedStok = parseInt(stok);
+
+    if (isNaN(parsedHarga) || isNaN(parsedStok)) {
+      return NextResponse.json(
+        { error: "Harga dan stok harus berupa angka yang valid." },
+        { status: 400 }
+      );
+    }
+
+    const dataToCreate = {
+      nama,
+      harga: parsedHarga,
+      stok: parsedStok,
+      warna: warna || undefined,
+      foto: foto || undefined,
+    };
+
+    const newProduk = await prisma.produk.create({
+      data: dataToCreate,
+    });
+
+    return NextResponse.json(newProduk, { status: 201 });
+  } catch (error: any) {
+    console.error("Gagal menambahkan produk:", error);
+    return NextResponse.json(
+      {
+        error: "Gagal menambahkan produk",
+        details: error.message,
+        prismaCode: error.code || null,
       },
-    });
-
-    return NextResponse.json(product, { status: 201 });
-  } catch (error) {
-    console.error('Error creating product:', error);
-    return NextResponse.json(
-      { error: 'Failed to create product' },
       { status: 500 }
     );
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const data = await request.json();
-    const { id, nama, harga, stok, warna, foto } = data;
-
-    if (!id || !nama || !harga || !stok || !warna || !foto) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    const product = await prisma.produk.update({
-      where: { id: parseInt(id) },
-      data: {
-        nama,
-        harga: parseInt(harga),
-        stok: parseInt(stok),
-        warna,
-        foto,
-      },
-    });
-
-    return NextResponse.json(product);
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const { id } = await request.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Missing product ID' },
-        { status: 400 }
-      );
-    }
-
-    await prisma.produk.delete({
-      where: { id: parseInt(id) },
-    });
-
-    return NextResponse.json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting product:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete product' },
-      { status: 500 }
-    );
+  } finally {
+    await prisma.$disconnect();
   }
 }
