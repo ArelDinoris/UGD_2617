@@ -42,7 +42,6 @@ const SalesPage = () => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [orderId, setOrderId] = useState("");
 
-  // Generate a unique order ID when the component mounts
   useEffect(() => {
     const generateOrderId = () => {
       const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
@@ -53,7 +52,6 @@ const SalesPage = () => {
     setOrderId(generateOrderId());
   }, []);
 
-  // Fetch products from API
   useEffect(() => {
     async function fetchProducts() {
       try {
@@ -76,32 +74,25 @@ const SalesPage = () => {
     fetchProducts();
   }, []);
 
-  // Calculate total price
   const totalPrice = cart.reduce((sum, item) => sum + item.subtotal, 0);
-  
-  // Calculate change amount
   const changeAmount = Math.max(0, paymentAmount - totalPrice);
 
-  // Filter products based on search query
   const filteredProducts = products.filter(product =>
     product.nama.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Add product to cart
   const addToCart = (product: Product) => {
     setCart(prevCart => {
-      // Check if product is already in cart
       const existingItemIndex = prevCart.findIndex(item => item.id === product.id);
       
       if (existingItemIndex !== -1) {
-        // Update quantity of existing item
+        // Tambah 1 jika produk sudah ada
         const updatedCart = [...prevCart];
         updatedCart[existingItemIndex].quantity += 1;
-        updatedCart[existingItemIndex].subtotal = 
-          updatedCart[existingItemIndex].quantity * updatedCart[existingItemIndex].harga;
+        updatedCart[existingItemIndex].subtotal = updatedCart[existingItemIndex].quantity * updatedCart[existingItemIndex].harga;
         return updatedCart;
       } else {
-        // Add new item to cart
+        // Tambah 1 untuk produk baru
         return [...prevCart, {
           ...product,
           quantity: 1,
@@ -111,12 +102,10 @@ const SalesPage = () => {
     });
   };
 
-  // Remove product from cart
   const removeFromCart = (productId: number) => {
     setCart(prevCart => prevCart.filter(item => item.id !== productId));
   };
 
-  // Update product quantity in cart
   const updateQuantity = (productId: number, delta: number) => {
     setCart(prevCart => {
       return prevCart.map(item => {
@@ -133,7 +122,6 @@ const SalesPage = () => {
     });
   };
 
-  // Save transaction to database
   const saveTransaction = async () => {
     try {
       if (cart.length === 0) {
@@ -151,7 +139,6 @@ const SalesPage = () => {
         return;
       }
 
-      // Prepare transaction data for each cart item
       const transactions = cart.map(item => ({
         produkId: item.id,
         customer: customerName,
@@ -164,22 +151,17 @@ const SalesPage = () => {
         status: "Done"
       }));
 
-      // Send transaction data to API
       const response = await fetch("/api/transaction", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(transactions),
       });
 
       if (!response.ok) throw new Error("Failed to save transaction");
 
-      // Show success message and reset cart
       setShowSuccessMessage(true);
       setTimeout(() => {
         setShowSuccessMessage(false);
-        // Reset form after successful transaction
         setCart([]);
         setCustomerName("");
         setPaymentAmount(0);
@@ -189,13 +171,11 @@ const SalesPage = () => {
           return `OBZ-${dateStr}-${randomNum}`;
         });
       }, 3000);
-      
     } catch (err: any) {
       alert(`Error saving transaction: ${err.message}`);
     }
   };
 
-  // Loading Skeleton Component for a Single Product
   const ProductSkeleton = () => (
     <div className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl text-center shadow-lg flex flex-col items-center animate-pulse">
       <div className="relative w-32 h-32 mb-3 bg-slate-700 rounded-full"></div>
@@ -206,7 +186,6 @@ const SalesPage = () => {
     </div>
   );
 
-  // Loading Skeleton for Receipt
   const ReceiptSkeleton = () => (
     <div className="w-full rounded-3xl p-4 bg-white text-blue-950">
       <div className="rounded-2xl p-6 flex flex-col justify-between shadow-lg h-full animate-pulse">
@@ -249,36 +228,26 @@ const SalesPage = () => {
     </div>
   );
 
-  // Full Page Loading Skeleton
   if (loading) {
     return (
       <div className="min-h-screen p-6 font-sans space-y-6">
-        {/* HEADER SKELETON */}
         <div className="flex flex-col md:flex-row justify-between gap-6">
-          {/* Sort & Search Skeleton */}
           <div className="w-full md:w-2/3 rounded-3xl p-4 space-y-4 bg-[#303477] animate-pulse">
             <div className="flex items-center gap-4">
               <div className="h-10 bg-slate-200 rounded-xl w-24"></div>
               <div className="h-10 bg-slate-200 rounded-xl w-full"></div>
             </div>
           </div>
-
-          {/* POS Title Skeleton */}
           <div className="w-full md:w-1/3 rounded-3xl p-4 flex justify-center items-center bg-white animate-pulse">
             <div className="h-8 bg-slate-200 rounded w-3/4"></div>
           </div>
         </div>
-
-        {/* MAIN CONTENT SKELETON */}
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Product Grid Skeleton */}
           <div className="w-full md:w-2/3 rounded-3xl p-6 grid grid-cols-2 gap-6 bg-[#303477]">
             {[...Array(6)].map((_, idx) => (
               <ProductSkeleton key={idx} />
             ))}
           </div>
-
-          {/* Receipt Skeleton */}
           <div className="w-full md:w-1/3">
             <ReceiptSkeleton />
           </div>
@@ -297,38 +266,31 @@ const SalesPage = () => {
 
   return (
     <div className="min-h-screen p-6 font-sans space-y-6">
-      {/* Success Message */}
       {showSuccessMessage && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in-out">
           Transaction saved successfully!
         </div>
       )}
       
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between gap-6">
-        {/* Sort & Search */}
         <div className="w-full md:w-2/3 rounded-3xl p-4 space-y-4 bg-[#303477]">
           <div className="flex items-center gap-4">
             <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#303f9f] transition">
               <FaSort size={18} />
               <span className="text-sm">Sort</span>
             </button>
-
-            {/* Search Bar */}
             <div className="relative w-full">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#303477]" />
               <input
                 type="text"
                 placeholder="Search Bazeus Products, Headphone, Airpod, Others...."
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-white text-[#303477] placeholder-[#303477] focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-white text-[#303477] placeholder-[#303477] focus:outline-none focus:ring-2 focus:ring-[#303f9f]"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
         </div>
-
-        {/* POS Title */}
         <div className="w-full md:w-1/3 rounded-3xl p-4 flex justify-center items-center bg-white">
           <div className="text-xl font-semibold text-center tracking-wider text-[#303477]">
             Point Of Sales
@@ -336,9 +298,7 @@ const SalesPage = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="flex flex-col md:flex-row gap-6">
-        {/* Product Grid */}
         <div className="w-full md:w-2/3 rounded-3xl p-6 grid grid-cols-2 gap-6 bg-[#303477]">
           {filteredProducts.length === 0 ? (
             <p className="text-white text-center col-span-2">No products found.</p>
@@ -359,8 +319,6 @@ const SalesPage = () => {
                 </div>
                 <p className="text-xl font-semibold mt-4 text-white">{product.nama}</p>
                 <p className="text-sm text-gray-300 mt-1">ID: {product.id}</p>
-
-                {/* Tampilkan warna produk */}
                 {product.warna && (
                   <p className="text-sm text-gray-300 mt-1 flex items-center justify-center gap-2">
                     Colour: 
@@ -371,7 +329,6 @@ const SalesPage = () => {
                     />
                   </p>
                 )}
-
                 <p className="mt-2 text-sm text-white">
                   Stock: {product.stok ?? "N/A"}
                 </p>
@@ -383,20 +340,16 @@ const SalesPage = () => {
           )}
         </div>
 
-        {/* Receipt */}
         <div className="w-full md:w-1/3 rounded-3xl p-4 bg-white text-blue-950">
           <div className="rounded-2xl p-6 flex flex-col justify-between shadow-lg h-full">
             <div>
-              <h2 className="text-2xl font-bold text-center text-[#1e2a5a]">Bazeus</h2>
+              <h2 className="text-2xl font-bold text-center text-[#1e2a5a] mb-2">Bazeus</h2>
               <p className="text-xs text-center mb-4 leading-tight text-blue-950">
                 Jl. Babarsari No.43, Janti, Caturtunggal, Kec. Depok,<br />
                 Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281
               </p>
-
-              <div className="text-sm leading-relaxed mb-4">
+              <div className="text-sm leading-relaxed mb-4 space-y-2">
                 <p><strong>Order ID:</strong> {orderId}</p>
-
-                {/* Customer Input */}
                 <div className="my-2">
                   <strong>Customer:</strong>
                   <input
@@ -404,13 +357,10 @@ const SalesPage = () => {
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Enter customer name"
-                    className="ml-2 px-2 py-1 border rounded w-3/4"
+                    className="ml-2 px-3 py-1 border rounded-md w-3/4 focus:outline-none focus:ring-2 focus:ring-[#1e2a5a]"
                   />
                 </div>
-                
                 <p><strong>Date:</strong> {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                
-                {/* Cart Items */}
                 <div className="mt-2">
                   <strong>Items:</strong>
                   {cart.length === 0 ? (
@@ -434,7 +384,7 @@ const SalesPage = () => {
                                 e.stopPropagation();
                                 updateQuantity(item.id, -1);
                               }}
-                              className="p-1 bg-gray-200 rounded-full"
+                              className="p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                             >
                               <FaMinus size={10} />
                             </button>
@@ -443,7 +393,7 @@ const SalesPage = () => {
                                 e.stopPropagation();
                                 updateQuantity(item.id, 1);
                               }}
-                              className="p-1 bg-gray-200 rounded-full"
+                              className="p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                             >
                               <FaPlus size={10} />
                             </button>
@@ -452,7 +402,7 @@ const SalesPage = () => {
                                 e.stopPropagation();
                                 removeFromCart(item.id);
                               }}
-                              className="p-1 bg-red-100 rounded-full text-red-600"
+                              className="p-1 bg-red-100 rounded-full text-red-600 hover:bg-red-200"
                             >
                               <FaTrash size={10} />
                             </button>
@@ -462,13 +412,7 @@ const SalesPage = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Total */}
-                <p className="mt-2 font-bold">
-                  <strong>Total:</strong> Rp {totalPrice.toLocaleString()}
-                </p>
-
-                {/* Payment Method */}
+                <p className="mt-2 font-bold"><strong>Total:</strong> Rp {totalPrice.toLocaleString()}</p>
                 <p className="mt-2"><strong>Payment Method:</strong></p>
                 <div className="flex gap-4 mt-1">
                   <label className="flex items-center gap-1 cursor-pointer">
@@ -492,8 +436,6 @@ const SalesPage = () => {
                     Cash
                   </label>
                 </div>
-
-                {/* Payment Input */}
                 <div className="mt-2">
                   <strong>Payment:</strong>
                   <input
@@ -501,33 +443,29 @@ const SalesPage = () => {
                     value={paymentAmount || ""}
                     onChange={(e) => setPaymentAmount(Number(e.target.value))}
                     placeholder="Enter payment amount"
-                    className="ml-2 px-2 py-1 border rounded w-1/2"
+                    className="ml-2 px-3 py-1 border rounded-md w-1/2 focus:outline-none focus:ring-2 focus:ring-[#1e2a5a]"
                   />
                 </div>
-
                 <p><strong>Return:</strong> Rp {changeAmount.toLocaleString()}</p>
               </div>
-
               <p className="text-center text-sm mt-4 text-blue-950">
                 Thank you for shopping at <strong>Bazeus</strong><br />
                 Your satisfaction is our satisfaction too.
               </p>
             </div>
-
-            {/* BUTTONS WITH ICONS */}
             <div className="flex flex-col gap-3 mt-6">
               <button 
-                className="bg-[#1a56db] hover:bg-[#174bc2] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2"
+                className="bg-[#1a56db] hover:bg-[#174bc2] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2 transition"
                 onClick={saveTransaction}
               >
                 <FaSave size={18} />
                 Save
               </button>
-              <button className="bg-[#f5a623] hover:bg-[#d98d1c] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2">
+              <button className="bg-[#f5a623] hover:bg-[#d98d1c] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2 transition">
                 <FaEdit size={18} />
                 Edit
               </button>
-              <button className="bg-[#28c76f] hover:bg-[#20a35a] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2">
+              <button className="bg-[#28c76f] hover:bg-[#20a35a] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2 transition">
                 <FaPrint size={18} />
                 Print
               </button>
