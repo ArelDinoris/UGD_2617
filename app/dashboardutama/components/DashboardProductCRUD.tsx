@@ -1,19 +1,20 @@
-'use client';
+     "use client";
 
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Search } from 'lucide-react';
-
 
 interface Produk {
   id: number;
   nama: string;
   harga: number;
   stok: number;
+  warna: string;
+  foto?: string;
 }
 
 export default function DashboardProductCRUD() {
   const [product, setProduct] = useState<Produk[]>([]);
-  const [form, setForm] = useState({ nama: '', harga: '', stok: '' });
+  const [form, setForm] = useState({ nama: '', harga: '', stok: '', warna: '', foto: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -51,9 +52,30 @@ export default function DashboardProductCRUD() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setMessage('File harus berupa gambar (jpg, png, dll)');
+        setTimeout(() => setMessage(''), 3000);
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        setMessage('Ukuran file tidak boleh melebihi 2MB');
+        setTimeout(() => setMessage(''), 3000);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm({ ...form, foto: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleCreate = async () => {
-    if (!form.nama || !form.harga || !form.stok) {
-      setMessage('Semua field wajib diisi');
+    if (!form.nama || !form.harga || !form.stok || !form.warna) {
+      setMessage('Nama, harga, stok, dan warna wajib diisi');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -63,6 +85,8 @@ export default function DashboardProductCRUD() {
       nama: form.nama,
       harga: Number(form.harga),
       stok: Number(form.stok),
+      warna: form.warna,
+      foto: form.foto || null,
     };
 
     try {
@@ -71,16 +95,18 @@ export default function DashboardProductCRUD() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (response.ok) {
-        const newProduct = await response.json();
-        setProduct([...product, newProduct]);
-        setMessage('Produk berhasil ditambahkan');
-        setForm({ nama: '', harga: '', stok: '' });
-      } else {
-        throw new Error('Gagal menambah produk');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gagal menambah produk: ${errorText || 'Server error'}`);
       }
-    } catch (error) {
-      setMessage('Terjadi kesalahan saat menambah produk');
+      const newProduct = await response.json();
+      console.log('API Response:', newProduct);
+      const updatedProduct = { ...newProduct, id: newProduct.id || Date.now() };
+      setProduct([...product, updatedProduct]);
+      setMessage('Produk berhasil ditambahkan');
+      setForm({ nama: '', harga: '', stok: '', warna: '', foto: '' });
+    } catch (error: any) { // Menambahkan tipe any untuk error
+      setMessage(`Terjadi kesalahan saat menambah produk: ${error.message || error}`);
       console.error('Error creating product:', error);
     }
 
@@ -90,8 +116,8 @@ export default function DashboardProductCRUD() {
 
   const handleSubmit = async () => {
     if (!editingId) return;
-    if (!form.nama || !form.harga || !form.stok) {
-      setMessage('Semua field wajib diisi');
+    if (!form.nama || !form.harga || !form.stok || !form.warna) {
+      setMessage('Nama, harga, stok, dan warna wajib diisi');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -101,6 +127,8 @@ export default function DashboardProductCRUD() {
       nama: form.nama,
       harga: Number(form.harga),
       stok: Number(form.stok),
+      warna: form.warna,
+      foto: form.foto || null,
     };
 
     try {
@@ -109,17 +137,17 @@ export default function DashboardProductCRUD() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (response.ok) {
-        const updatedProduct = await response.json();
-        setProduct(product.map((p) => (p.id === editingId ? updatedProduct : p)));
-        setMessage('Produk berhasil diupdate');
-        setForm({ nama: '', harga: '', stok: '' });
-        setEditingId(null);
-      } else {
-        throw new Error('Gagal mengupdate produk');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gagal mengupdate produk: ${errorText || 'Server error'}`);
       }
-    } catch (error) {
-      setMessage('Terjadi kesalahan saat mengupdate produk');
+      const updatedProduct = await response.json();
+      setProduct(product.map((p) => (p.id === editingId ? updatedProduct : p)));
+      setMessage('Produk berhasil diupdate');
+      setForm({ nama: '', harga: '', stok: '', warna: '', foto: '' });
+      setEditingId(null);
+    } catch (error: any) { // Menambahkan tipe any untuk error
+      setMessage(`Terjadi kesalahan saat mengupdate produk: ${error.message || error}`);
       console.error('Error updating product:', error);
     }
 
@@ -136,10 +164,11 @@ export default function DashboardProductCRUD() {
         setProduct(product.filter((p) => p.id !== id));
         setMessage('Produk berhasil dihapus');
       } else {
-        throw new Error('Gagal menghapus produk');
+        const errorText = await response.text();
+        throw new Error(`Gagal menghapus produk: ${errorText || 'Server error'}`);
       }
-    } catch (error) {
-      setMessage('Gagal menghapus produk');
+    } catch (error: any) { // Menambahkan tipe any untuk error
+      setMessage(`Gagal menghapus produk: ${error.message || error}`);
       console.error('Error deleting product:', error);
     }
     setTimeout(() => setMessage(''), 3000);
@@ -150,13 +179,15 @@ export default function DashboardProductCRUD() {
       nama: product.nama,
       harga: String(product.harga),
       stok: String(product.stok),
+      warna: product.warna,
+      foto: product.foto || '',
     });
     setEditingId(product.id);
   };
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ nama: '', harga: '', stok: '' });
+    setForm({ nama: '', harga: '', stok: '', warna: '', foto: '' });
   };
 
   return (
@@ -184,7 +215,7 @@ export default function DashboardProductCRUD() {
           </h2>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <label className="text-white/90 text-sm font-medium">Nama Produk</label>
                 <input
@@ -219,12 +250,43 @@ export default function DashboardProductCRUD() {
                   className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
                 />
               </div>
+              
+              <div className="space-y-2">
+                <label className="text-white/90 text-sm font-medium">Warna</label>
+                <input
+                  name="warna"
+                  value={form.warna}
+                  onChange={handleChange}
+                  placeholder="Masukkan warna"
+                  className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-white/90 text-sm font-medium">Foto Produk (Opsional)</label>
+                <input
+                  name="foto"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+                />
+                {form.foto && (
+                  <div className="mt-2">
+                    <img
+                      src={form.foto}
+                      alt="Pratinjau"
+                      className="w-24 h-24 object-cover rounded-lg border border-white/20"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="flex gap-3 pt-4">
               <button
                 onClick={editingId ? handleSubmit : handleCreate}
-                disabled={loading || !form.nama || !form.harga || !form.stok}
+                disabled={loading || !form.nama || !form.harga || !form.stok || !form.warna}
                 className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -264,9 +326,11 @@ export default function DashboardProductCRUD() {
               <thead>
                 <tr className="border-b border-white/20">
                   <th className="text-left py-4 px-4 text-white/90 font-medium">NO.</th>
+                  <th className="text-left py-4 px-4 text-white/90 font-medium">FOTO</th>
                   <th className="text-left py-4 px-4 text-white/90 font-medium">NAMA PRODUK</th>
                   <th className="text-left py-4 px-4 text-white/90 font-medium">HARGA</th>
                   <th className="text-left py-4 px-4 text-white/90 font-medium">STOK</th>
+                  <th className="text-left py-4 px-4 text-white/90 font-medium">WARNA</th>
                   <th className="text-left py-4 px-4 text-white/90 font-medium">STATUS</th>
                   <th className="text-center py-4 px-4 text-white/90 font-medium">AKSI</th>
                 </tr>
@@ -274,7 +338,7 @@ export default function DashboardProductCRUD() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-white/60">
+                    <td colSpan={8} className="py-8 text-center text-white/60">
                       Memuat data...
                     </td>
                   </tr>
@@ -282,9 +346,21 @@ export default function DashboardProductCRUD() {
                   paginatedProducts.map((product, index) => (
                     <tr key={product.id} className="border-b border-white/10 hover:bg-white/5 transition-colors">
                       <td className="py-4 px-4 text-white">{startIndex + index + 1}</td>
+                      <td className="py-4 px-4">
+                        {product.foto ? (
+                          <img
+                            src={product.foto}
+                            alt={product.nama}
+                            className="w-12 h-12 object-cover rounded-lg border border-white/20"
+                          />
+                        ) : (
+                          <span className="text-white/60">-</span>
+                        )}
+                      </td>
                       <td className="py-4 px-4 text-white font-medium">{product.nama}</td>
                       <td className="py-4 px-4 text-white">Rp {product.harga.toLocaleString('id-ID')}</td>
                       <td className="py-4 px-4 text-white">{product.stok}</td>
+                      <td className="py-4 px-4 text-white">{product.warna}</td>
                       <td className="py-4 px-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           product.stok > 10 
@@ -316,7 +392,7 @@ export default function DashboardProductCRUD() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-white/60">
+                    <td colSpan={8} className="py-8 text-center text-white/60">
                       Tidak ada produk yang ditemukan
                     </td>
                   </tr>

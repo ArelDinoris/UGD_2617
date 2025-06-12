@@ -1,27 +1,37 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/app/lib/prisma';
 
+// Fungsi untuk memvalidasi string base64 sebagai gambar
+const isValidImageBase64 = (base64String: string): boolean => {
+  if (!base64String) return true; // Izinkan null
+  const imageRegex = /^data:image\/(jpeg|png|gif|bmp|webp);base64,/;
+  return imageRegex.test(base64String);
+};
+
 export async function GET() {
   try {
     const products = await prisma.produk.findMany();
-    return NextResponse.json(products);
+    return NextResponse.json(products, { status: 200 });
   } catch (error) {
     console.error('Error fetching products:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Gagal mengambil produk' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
-    const { nama, harga, stok } = data;
+    const { nama, harga, stok, warna, foto } = await request.json();
 
-    if (!nama || !harga || !stok) {
+    if (!nama || !harga || !stok || !warna) {
       return NextResponse.json(
-        { error: 'Nama, harga, dan stok wajib diisi' },
+        { error: 'Nama, harga, stok, dan warna wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    if (foto && !isValidImageBase64(foto)) {
+      return NextResponse.json(
+        { error: 'File harus berupa gambar yang valid (jpg, png, dll)' },
         { status: 400 }
       );
     }
@@ -29,77 +39,16 @@ export async function POST(request: Request) {
     const product = await prisma.produk.create({
       data: {
         nama,
-        harga: parseInt(harga),
-        stok: parseInt(stok),
-        warna: 'default',
-        foto: 'default.jpg',
+        harga: Number(harga),
+        stok: Number(stok),
+        warna,
+        foto: foto || null,
       },
     });
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
     console.error('Error creating product:', error);
-    return NextResponse.json(
-      { error: 'Failed to create product' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const data = await request.json();
-    const { id, nama, harga, stok, warna, foto } = data;
-
-    if (!id || !nama || !harga || !stok || !warna || !foto) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    const product = await prisma.produk.update({
-      where: { id: parseInt(id) },
-      data: {
-        nama,
-        harga: parseInt(harga),
-        stok: parseInt(stok),
-        warna,
-        foto,
-      },
-    });
-
-    return NextResponse.json(product);
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const { id } = await request.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Missing product ID' },
-        { status: 400 }
-      );
-    }
-
-    await prisma.produk.delete({
-      where: { id: parseInt(id) },
-    });
-
-    return NextResponse.json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting product:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete product' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Gagal menambah produk' }, { status: 500 });
   }
 }
