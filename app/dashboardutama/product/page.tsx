@@ -1,16 +1,17 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { FaSearch, FaSort, FaEdit, FaTrash } from 'react-icons/fa';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import { FaSort } from "react-icons/fa";
+import { FaSearch } from "react-icons/fa";
 
 interface Product {
   id: number;
   nama: string;
   harga: number;
   stok: number;
-  warna: string;
-  foto: string;
+  warna?: string;
+  foto?: string;
   deskripsi?: string;
 }
 
@@ -55,205 +56,395 @@ const InputSkeleton = ({ width, height }: { width: string; height: string }) => 
   );
 };
 
-const ProductPage = () => {
+export default function ProductPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [showAddPopup, setShowAddPopup] = useState(false);
-  const [showEditPopup, setShowEditPopup] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [form, setForm] = useState({
+    nama: "",
+    harga: 0,
+    stok: 0,
+    warna: "",
+    foto: "",
+    deskripsi: "",
+  });
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    setLoading(true);
-    fetch('/api/product')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch products');
-        return res.json();
-      })
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError('Failed to load products');
-        setLoading(false);
-      });
+    fetchProducts();
   }, []);
 
-  const handleEditClick = (product: Product) => {
-    setCurrentProduct(product);
-    setShowEditPopup(true);
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/product");
+      if (!res.ok) throw new Error("Failed to fetch products");
+      const data = await res.json();
+      setProducts(data);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      setError("Gagal mengambil produk");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteClick = (product: Product) => {
-    setCurrentProduct(product);
-    setShowDeletePopup(true);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({
+      ...form,
+      [e.target.name]:
+        e.target.name === "nama" ||
+        e.target.name === "warna" ||
+        e.target.name === "deskripsi"
+          ? e.target.value
+          : +e.target.value,
+    });
   };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm({ ...form, foto: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.nama || form.harga <= 0 || form.stok < 0) {
+      setMessage("Mohon isi semua field dengan benar!");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const body = {
+        nama: form.nama,
+        harga: form.harga,
+        stok: form.stok,
+        warna: form.warna,
+        foto: form.foto,
+      };
+
+      if (editingId) {
+        const res = await fetch(`/api/product/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Failed to update product");
+        const updatedProduct = await res.json();
+        setProducts(
+          products.map((p) =>
+            p.id === editingId ? updatedProduct : p
+          )
+        );
+        setMessage("Produk berhasil diupdate");
+      } else {
+        const res = await fetch("/api/product", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Failed to add product");
+        const newProduct = await res.json();
+        setProducts([...products, newProduct]);
+        setMessage("Produk berhasil ditambahkan");
+      }
+    } catch (err: any) {
+      console.error("Error submitting product:", err);
+      setMessage(`Terjadi kesalahan: ${err.message || "Server error"}`);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(""), 3000);
+      setForm({ nama: "", harga: 0, stok: 0, warna: "", foto: "", deskripsi: "" });
+      setEditingId(null);
+    }
+  };
+
+  const handleEdit = (product: Product) => {
+    setForm({
+      nama: product.nama,
+      harga: product.harga,
+      stok: product.stok,
+      warna: product.warna || "",
+      foto: product.foto || "",
+      deskripsi: product.deskripsi || "",
+    });
+    setEditingId(product.id);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/product/${id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Failed to delete product");
+        setProducts(products.filter((p) => p.id !== id));
+        setMessage("Produk berhasil dihapus");
+      } catch (err: any) {
+        console.error("Error deleting product:", err);
+        setMessage(`Terjadi kesalahan: ${err.message || "Server error"}`);
+      } finally {
+        setLoading(false);
+        setTimeout(() => setMessage(""), 3000);
+      }
+    }
+  };
+
+  const cancelEdit = () => {
+    setForm({ nama: "", harga: 0, stok: 0, warna: "", foto: "", deskripsi: "" });
+    setEditingId(null);
+  };
+
+  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentData = products.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="min-h-screen bg-[#1a1f4d] p-4">
-      {/* Search and Add Bar */}
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          {loading ? (
-            <ButtonSkeleton width="90px" height="40px" />
-          ) : (
-            <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg">
-              <FaSort className="text-gray-600" />
-              <span>Sort</span>
-            </button>
-          )}
+      {/* Product Management Section */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Form Card */}
+        {!loading && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/10 shadow-2xl">
+            <h3 className="text-xl font-semibold text-white mb-6">
+              {editingId ? "Edit Produk" : "Tambah Produk Baru"}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <input
+                type="text"
+                name="nama"
+                placeholder="Nama Produk"
+                value={form.nama}
+                onChange={handleChange}
+                className="px-4 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl text-white placeholder-white/70 focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/30 transition-all duration-200"
+              />
+              <input
+                type="number"
+                name="harga"
+                placeholder="Harga"
+                value={form.harga || ""}
+                onChange={handleChange}
+                className="px-4 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl text-white placeholder-white/70 focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/30 transition-all duration-200"
+              />
+              <input
+                type="number"
+                name="stok"
+                placeholder="Stok"
+                value={form.stok || ""}
+                onChange={handleChange}
+                className="px-4 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl text-white placeholder-white/70 focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/30 transition-all duration-200"
+              />
+              <input
+                type="text"
+                name="warna"
+                placeholder="Warna"
+                value={form.warna}
+                onChange={handleChange}
+                className="px-4 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl text-white placeholder-white/70 focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/30 transition-all duration-200"
+              />
+              <input
+                type="file"
+                name="foto"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="px-4 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl text-white placeholder-white/70 focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/30 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="col-span-full sm:col-span-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Menyimpan..." : editingId ? "Update Produk" : "Tambah Produk"}
+              </button>
+              {editingId && (
+                <button
+                  onClick={cancelEdit}
+                  className="col-span-full sm:col-span-1 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-medium py-3 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200"
+                >
+                  Batal Edit
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-          <div className="relative flex-1">
-            {loading ? (
-              <InputSkeleton width="100%" height="40px" />
-            ) : (
-              <>
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search Products..."
-                  className="w-full pl-10 pr-4 py-2 bg-white rounded-lg"
-                />
-              </>
-            )}
+        {/* Table Card */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+          <div className="p-6 border-b border-white/10">
+            <h3 className="text-xl font-semibold text-white">Daftar Produk</h3>
+          </div>
+          <div>
+            <table className="w-full table-fixed">
+              <thead className="bg-white/5 backdrop-blur">
+                <tr>
+                  <th className="w-[5%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    No.
+                  </th>
+                  <th className="w-[20%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Foto
+                  </th>
+                  <th className="w-[15%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Nama Produk
+                  </th>
+                  <th className="w-[10%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Harga
+                  </th>
+                  <th className="w-[10%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Stok
+                  </th>
+                  <th className="w-[10%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Warna
+                  </th>
+                  <th className="w-[10%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="w-[20%] px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-white/60">
+                      Memuat data...
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-white/60">
+                      {error}
+                    </td>
+                  </tr>
+                ) : currentData.length > 0 ? (
+                  currentData.map((product, index) => (
+                    <tr
+                      key={product.id}
+                      className="hover:bg-white/5 transition-colors duration-200"
+                    >
+                      <td className="px-6 py-4 text-sm text-white/90">
+                        {startIndex + index + 1}
+                      </td>
+                      <td className="px-6 py-4">
+                        {product.foto ? (
+                          <div className="relative w-12 h-12">
+                            <Image
+                              src={product.foto}
+                              alt={product.nama}
+                              layout="fill"
+                              objectFit="contain"
+                              className="rounded-lg"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-white/60">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-white break-words">
+                        {product.nama}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-white/90">
+                        Rp {product.harga.toLocaleString("id-ID")}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-white/90">
+                        {product.stok} unit
+                      </td>
+                      <td className="px-6 py-4 text-sm text-white/90">
+                        {product.warna || "-"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                            product.stok > 10
+                              ? "bg-green-400/20 text-green-300 border border-green-400/30"
+                              : product.stok > 0
+                              ? "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30"
+                              : "bg-red-400/20 text-red-300 border border-red-400/30"
+                          }`}
+                        >
+                          {product.stok > 10
+                            ? "Tersedia"
+                            : product.stok > 0
+                            ? "Terbatas"
+                            : "Habis"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-400/30 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 hover:scale-105"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-400/30 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 hover:scale-105"
+                        >
+                          Hapus
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-white/60">
+                      No products found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+      </div>
 
-        {loading ? (
-          <ButtonSkeleton width="80px" height="40px" />
-        ) : (
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-8">
+        <div className="text-sm text-white/70">
+          Menampilkan {startIndex + 1} -{" "}
+          {Math.min(startIndex + itemsPerPage, products.length)} dari{" "}
+          {products.length} produk
+        </div>
+        <div className="flex space-x-2">
           <button
-            onClick={() => setShowAddPopup(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium"
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-medium text-white/70 hover:text-white disabled:opacity-50 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur transition-all duration-200"
           >
-            + Add
+            Previous
           </button>
-        )}
+          {[...Array(totalPages)].map((_, i) => (
+            <button
+              key={i + 1}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`px-4 py-2 text-sm font-medium rounded-xl backdrop-blur transition-all duration-200 ${
+                currentPage === i + 1
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                  : "text-white/70 hover:text-white bg-white/10 hover:bg-white/20"
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-medium text-white/70 hover:text-white disabled:opacity-50 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur transition-all duration-200"
+          >
+            Next
+          </button>
+        </div>
       </div>
-
-      {/* Product List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => (
-            <ProductSkeleton key={index} />
-          ))
-        ) : error ? (
-          <div className="col-span-2 text-center text-white py-8">{error}</div>
-        ) : products.length > 0 ? (
-          products.map((product) => (
-            <div key={product.id} className="bg-[#242870] rounded-2xl p-6">
-              <div className="flex flex-row">
-                <div className="flex items-center justify-center w-1/2">
-                  <div className="relative w-32 h-32">
-                    <Image
-                      src={product.foto}
-                      alt={product.nama}
-                      layout="fill"
-                      objectFit="contain"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col items-end justify-center text-white w-1/2">
-                  <h3 className="text-xl font-medium">{product.nama}</h3>
-                  <p className="text-gray-300 text-sm mt-1">ID: {product.id}</p>
-                  <div className="flex justify-center my-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: product.warna }}
-                    ></div>
-                  </div>
-                  <p className="text-gray-300">Stock: {product.stok}</p>
-                  <p className="text-lg font-bold">Rp {product.harga.toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                <button
-                  onClick={() => handleEditClick(product)}
-                  className="w-full bg-[#e67e22] hover:bg-[#d35400] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
-                >
-                  <FaEdit />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteClick(product)}
-                  className="w-full bg-[#c0392b] hover:bg-[#a93226] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
-                >
-                  <FaTrash />
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="col-span-2 text-center text-white py-8">No products found.</div>
-        )}
-      </div>
-
-      {/* Popups */}
-      {showAddPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-            {/* Add form here */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowAddPopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEditPopup && currentProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Edit Product</h2>
-            {/* Edit form here */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowEditPopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                Update
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeletePopup && currentProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Delete Product</h2>
-            <p>Are you sure you want to delete {currentProduct.nama}?</p>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowDeletePopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-};
-
-export default ProductPage;
+}

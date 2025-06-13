@@ -28,6 +28,7 @@ interface Transaction {
   total_bayar: number;
   total_kembalian: number;
   status: string;
+  orderId?: string;
 }
 
 const SalesPage = () => {
@@ -90,18 +91,15 @@ const SalesPage = () => {
   // Add product to cart
   const addToCart = (product: Product) => {
     setCart(prevCart => {
-      // Check if product is already in cart
       const existingItemIndex = prevCart.findIndex(item => item.id === product.id);
       
       if (existingItemIndex !== -1) {
-        // Update quantity of existing item
         const updatedCart = [...prevCart];
         updatedCart[existingItemIndex].quantity += 1;
         updatedCart[existingItemIndex].subtotal = 
           updatedCart[existingItemIndex].quantity * updatedCart[existingItemIndex].harga;
         return updatedCart;
       } else {
-        // Add new item to cart
         return [...prevCart, {
           ...product,
           quantity: 1,
@@ -151,7 +149,6 @@ const SalesPage = () => {
         return;
       }
 
-      // Prepare transaction data for each cart item
       const transactions = cart.map(item => ({
         produkId: item.id,
         customer: customerName,
@@ -161,25 +158,21 @@ const SalesPage = () => {
         metode_bayar: paymentMethod,
         total_bayar: paymentAmount,
         total_kembalian: changeAmount,
-        status: "Done"
+        status: "Done",
+        orderId: orderId,
       }));
 
-      // Send transaction data to API
       const response = await fetch("/api/transaction", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(transactions),
       });
 
       if (!response.ok) throw new Error("Failed to save transaction");
 
-      // Show success message and reset cart
       setShowSuccessMessage(true);
       setTimeout(() => {
         setShowSuccessMessage(false);
-        // Reset form after successful transaction
         setCart([]);
         setCustomerName("");
         setPaymentAmount(0);
@@ -253,32 +246,23 @@ const SalesPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen p-6 font-sans space-y-6">
-        {/* HEADER SKELETON */}
         <div className="flex flex-col md:flex-row justify-between gap-6">
-          {/* Sort & Search Skeleton */}
           <div className="w-full md:w-2/3 rounded-3xl p-4 space-y-4 bg-[#303477] animate-pulse">
             <div className="flex items-center gap-4">
               <div className="h-10 bg-slate-200 rounded-xl w-24"></div>
               <div className="h-10 bg-slate-200 rounded-xl w-full"></div>
             </div>
           </div>
-
-          {/* POS Title Skeleton */}
           <div className="w-full md:w-1/3 rounded-3xl p-4 flex justify-center items-center bg-white animate-pulse">
             <div className="h-8 bg-slate-200 rounded w-3/4"></div>
           </div>
         </div>
-
-        {/* MAIN CONTENT SKELETON */}
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Product Grid Skeleton */}
           <div className="w-full md:w-2/3 rounded-3xl p-6 grid grid-cols-2 gap-6 bg-[#303477]">
             {[...Array(6)].map((_, idx) => (
               <ProductSkeleton key={idx} />
             ))}
           </div>
-
-          {/* Receipt Skeleton */}
           <div className="w-full md:w-1/3">
             <ReceiptSkeleton />
           </div>
@@ -297,24 +281,19 @@ const SalesPage = () => {
 
   return (
     <div className="min-h-screen p-6 font-sans space-y-6">
-      {/* Success Message */}
       {showSuccessMessage && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in-out">
           Transaction saved successfully!
         </div>
       )}
       
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between gap-6">
-        {/* Sort & Search */}
         <div className="w-full md:w-2/3 rounded-3xl p-4 space-y-4 bg-[#303477]">
           <div className="flex items-center gap-4">
             <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#303f9f] transition">
               <FaSort size={18} />
               <span className="text-sm">Sort</span>
             </button>
-
-            {/* Search Bar */}
             <div className="relative w-full">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#303477]" />
               <input
@@ -327,8 +306,6 @@ const SalesPage = () => {
             </div>
           </div>
         </div>
-
-        {/* POS Title */}
         <div className="w-full md:w-1/3 rounded-3xl p-4 flex justify-center items-center bg-white">
           <div className="text-xl font-semibold text-center tracking-wider text-[#303477]">
             Point Of Sales
@@ -336,16 +313,14 @@ const SalesPage = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="flex flex-col md:flex-row gap-6">
-        {/* Product Grid */}
         <div className="w-full md:w-2/3 rounded-3xl p-6 grid grid-cols-2 gap-6 bg-[#303477]">
           {filteredProducts.length === 0 ? (
             <p className="text-white text-center col-span-2">No products found.</p>
           ) : (
-            filteredProducts.map((product, idx) => (
+            filteredProducts.map((product) => (
               <div
-                key={product.id || idx}
+                key={product.id}
                 className="bg-gradient-to-br from-[#303477] to-[#1d285c] p-6 rounded-3xl text-center shadow-lg flex flex-col items-center transition hover:scale-[1.01] cursor-pointer"
                 onClick={() => addToCart(product)}
               >
@@ -359,8 +334,6 @@ const SalesPage = () => {
                 </div>
                 <p className="text-xl font-semibold mt-4 text-white">{product.nama}</p>
                 <p className="text-sm text-gray-300 mt-1">ID: {product.id}</p>
-
-                {/* Tampilkan warna produk */}
                 {product.warna && (
                   <p className="text-sm text-gray-300 mt-1 flex items-center justify-center gap-2">
                     Colour: 
@@ -371,7 +344,6 @@ const SalesPage = () => {
                     />
                   </p>
                 )}
-
                 <p className="mt-2 text-sm text-white">
                   Stock: {product.stok ?? "N/A"}
                 </p>
@@ -383,7 +355,6 @@ const SalesPage = () => {
           )}
         </div>
 
-        {/* Receipt */}
         <div className="w-full md:w-1/3 rounded-3xl p-4 bg-white text-blue-950">
           <div className="rounded-2xl p-6 flex flex-col justify-between shadow-lg h-full">
             <div>
@@ -395,8 +366,6 @@ const SalesPage = () => {
 
               <div className="text-sm leading-relaxed mb-4">
                 <p><strong>Order ID:</strong> {orderId}</p>
-
-                {/* Customer Input */}
                 <div className="my-2">
                   <strong>Customer:</strong>
                   <input
@@ -407,18 +376,15 @@ const SalesPage = () => {
                     className="ml-2 px-2 py-1 border rounded w-3/4"
                   />
                 </div>
-                
                 <p><strong>Date:</strong> {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                
-                {/* Cart Items */}
                 <div className="mt-2">
                   <strong>Items:</strong>
                   {cart.length === 0 ? (
                     <p className="italic text-gray-500">No items in cart</p>
                   ) : (
                     <div className="mt-1 space-y-2 max-h-44 overflow-y-auto">
-                      {cart.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center border-b pb-1">
+                      {cart.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center border-b pb-1">
                           <div>
                             <div className="flex items-center">
                               <span className="mr-2">x{item.quantity}</span>
@@ -462,13 +428,9 @@ const SalesPage = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Total */}
                 <p className="mt-2 font-bold">
                   <strong>Total:</strong> Rp {totalPrice.toLocaleString()}
                 </p>
-
-                {/* Payment Method */}
                 <p className="mt-2"><strong>Payment Method:</strong></p>
                 <div className="flex gap-4 mt-1">
                   <label className="flex items-center gap-1 cursor-pointer">
@@ -492,8 +454,6 @@ const SalesPage = () => {
                     Cash
                   </label>
                 </div>
-
-                {/* Payment Input */}
                 <div className="mt-2">
                   <strong>Payment:</strong>
                   <input
@@ -504,17 +464,14 @@ const SalesPage = () => {
                     className="ml-2 px-2 py-1 border rounded w-1/2"
                   />
                 </div>
-
                 <p><strong>Return:</strong> Rp {changeAmount.toLocaleString()}</p>
               </div>
-
               <p className="text-center text-sm mt-4 text-blue-950">
                 Thank you for shopping at <strong>Bazeus</strong><br />
                 Your satisfaction is our satisfaction too.
               </p>
             </div>
 
-            {/* BUTTONS WITH ICONS */}
             <div className="flex flex-col gap-3 mt-6">
               <button 
                 className="bg-[#1a56db] hover:bg-[#174bc2] text-white font-bold py-2 rounded-xl text-lg flex items-center justify-center gap-2"

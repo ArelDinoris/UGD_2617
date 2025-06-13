@@ -1,10 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "./node_modules/@prisma/client"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 model Produk {
@@ -12,8 +13,10 @@ model Produk {
   nama      String
   harga     Int
   stok      Int
-  warna     String
-  foto      String
+  warna     String?
+  foto      String?
+  deletedAt DateTime?
+  isDeleted Boolean?
   transaksi Transaksi[]
 }
 
@@ -29,6 +32,7 @@ model Transaksi {
   total_bayar     Int
   total_kembalian Int
   status          String
+  orderId         String?  // Diubah dari Int? menjadi String?
   produk          Produk   @relation(fields: [produkId], references: [id])
 }
 

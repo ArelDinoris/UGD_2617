@@ -1,8 +1,8 @@
-// File: app/dashboardutama/actions.ts
 'use server';
 
 import { prisma } from '@/app/lib/prisma';
 
+// Sesuaikan antarmuka Transaction dengan tipe Prisma
 export interface Analytics {
   totalProducts: number;
   totalRevenue: number;
@@ -15,19 +15,28 @@ export interface Analytics {
   totalQuantitySold: number;
 }
 
+// Definisikan tipe lengkap untuk Transaction berdasarkan hasil Prisma
 export interface Transaction {
   id: number;
-  orderId: string;
+  orderId: string | null;
   customer: string;
   total_harga: number;
   status: string;
-  tanggal: string;
+  tanggal: Date;
 }
 
+// Tambahkan antarmuka untuk ChartData
 export interface ChartData {
   labels: string[];
   incomeData: number[];
   customerData: number[];
+}
+
+// Definisikan tipe untuk hasil select transaksi
+interface TransactionSelect {
+  produkId: number;
+  jumlah_beli: number;
+  total_harga: number;
 }
 
 // Fungsi untuk mengambil data analytics
@@ -43,10 +52,10 @@ export async function getAnalyticsData(): Promise<Analytics> {
         jumlah_beli: true,
         total_harga: true,
       },
-    });
+    }) as TransactionSelect[];
 
-    // Hitung total pendapatan
-    const totalRevenue = transactions.reduce((sum, trx) => {
+    // Hitung total pendapatan dengan tipe eksplisit
+    const totalRevenue = transactions.reduce((sum: number, trx: TransactionSelect) => {
       return sum + trx.total_harga;
     }, 0);
 
@@ -72,13 +81,14 @@ export async function getAnalyticsData(): Promise<Analytics> {
     const mostSoldProduct = mostSoldProductId
       ? await prisma.produk.findUnique({
           where: { id: mostSoldProductId },
+          select: { id: true, nama: true, harga: true, foto: true },
         })
       : null;
 
     return {
       totalProducts,
       totalRevenue,
-      mostSoldProduct: mostSoldProduct as any || null,
+      mostSoldProduct: mostSoldProduct as any as { id: number; nama: string; harga: number; foto: string } | null,
       totalQuantitySold: mostSoldQuantity,
     };
   } catch (error) {
@@ -95,7 +105,16 @@ export async function getTransactionsData(): Promise<Transaction[]> {
         produk: true,
       },
     });
-    return transactions as unknown as Transaction[];
+
+    // Mapping hasil Prisma ke antarmuka Transaction dengan tipe eksplisit
+    return transactions.map((trx: { id: number; orderId: string | null; customer: string; total_harga: number; status: string; tanggal: Date }) => ({
+      id: trx.id,
+      orderId: trx.orderId,
+      customer: trx.customer,
+      total_harga: trx.total_harga,
+      status: trx.status,
+      tanggal: trx.tanggal,
+    }));
   } catch (error) {
     console.error('Error fetching transactions:', error);
     throw new Error('Failed to fetch transactions data');
