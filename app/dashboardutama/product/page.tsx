@@ -65,6 +65,8 @@ const ProductPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const productsPerPage = 4;
   const [formData, setFormData] = useState({
     nama: '',
     harga: 0,
@@ -101,6 +103,7 @@ const ProductPage = () => {
       product.nama.toLowerCase().includes(query.toLowerCase())
     );
     setFilteredProducts(filtered);
+    setCurrentPage(1); // Reset to page 1 on new search
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -122,9 +125,10 @@ const ProductPage = () => {
       if (!response.ok) throw new Error('Failed to add product');
       const newProduct = await response.json();
       setProducts([...products, newProduct]);
-      setFilteredProducts([...products, newProduct]);
+      setFilteredProducts([...filteredProducts, newProduct]);
       setFormData({ nama: '', harga: 0, stok: 0, warna: '', foto: '', deskripsi: '' });
       setShowAddPopup(false);
+      setCurrentPage(Math.ceil((filteredProducts.length + 1) / productsPerPage)); // Go to last page
     } catch (err) {
       alert('Error adding product');
     }
@@ -155,7 +159,9 @@ const ProductPage = () => {
       if (!response.ok) throw new Error('Failed to update product');
       const updatedProduct = await response.json();
       setProducts(products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
-      setFilteredProducts(filteredProducts.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+      setFilteredProducts(
+        filteredProducts.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+      );
       setShowEditPopup(false);
       setCurrentProduct(null);
     } catch (err) {
@@ -177,12 +183,33 @@ const ProductPage = () => {
         body: JSON.stringify({ id: currentProduct.id }),
       });
       if (!response.ok) throw new Error('Failed to delete product');
+      const newFilteredProducts = filteredProducts.filter(
+        (p) => p.id !== currentProduct.id
+      );
       setProducts(products.filter((p) => p.id !== currentProduct.id));
-      setFilteredProducts(filteredProducts.filter((p) => p.id !== currentProduct.id));
+      setFilteredProducts(newFilteredProducts);
       setShowDeletePopup(false);
       setCurrentProduct(null);
+      // Adjust current page if necessary
+      const newTotalPages = Math.ceil(newFilteredProducts.length / productsPerPage);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages);
+      }
     } catch (err) {
       alert('Error deleting product');
+    }
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const startIndex = (currentPage - 1) * productsPerPage;
+  const endIndex = startIndex + productsPerPage;
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
     }
   };
 
@@ -231,60 +258,103 @@ const ProductPage = () => {
       </div>
 
       {/* Product List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => (
-            <ProductSkeleton key={index} />
-          ))
-        ) : error ? (
-          <div className="col-span-2 text-center text-white py-8">{error}</div>
-        ) : filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
-            <div key={product.id} className="bg-[#242870] rounded-2xl p-6">
-              <div className="flex flex-row">
-                <div className="flex items-center justify-center w-1/2">
-                  <div className="relative w-32 h-32">
-                    <Image
-                      src={product.foto}
-                      alt={product.nama}
-                      layout="fill"
-                      objectFit="contain"
-                    />
+      <div className="relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <ProductSkeleton key={index} />
+            ))
+          ) : error ? (
+            <div className="col-span-2 text-center text-white py-8">{error}</div>
+          ) : currentProducts.length > 0 ? (
+            currentProducts.map((product) => (
+              <div key={product.id} className="bg-[#242870] rounded-2xl p-6">
+                <div className="flex flex-row">
+                  <div className="flex items-center justify-center w-1/2">
+                    <div className="relative w-32 h-32">
+                      <Image
+                        src={product.foto}
+                        alt={product.nama}
+                        layout="fill"
+                        objectFit="contain"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end justify-center text-white w-1/2">
+                    <h3 className="text-xl font-medium">{product.nama}</h3>
+                    <p className="text-gray-300 text-sm mt-1">ID: {product.id}</p>
+                    <div className="flex justify-center my-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: product.warna }}
+                      ></div>
+                    </div>
+                    <p className="text-gray-300">Stock: {product.stok}</p>
+                    <p className="text-lg font-bold">Rp {product.harga.toLocaleString()}</p>
                   </div>
                 </div>
-                <div className="flex flex-col items-end justify-center text-white w-1/2">
-                  <h3 className="text-xl font-medium">{product.nama}</h3>
-                  <p className="text-gray-300 text-sm mt-1">ID: {product.id}</p>
-                  <div className="flex justify-center my-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: product.warna }}
-                    ></div>
-                  </div>
-                  <p className="text-gray-300">Stock: {product.stok}</p>
-                  <p className="text-lg font-bold">Rp {product.harga.toLocaleString()}</p>
+                <div className="mt-4 space-y-3">
+                  <button
+                    onClick={() => handleEditClick(product)}
+                    className="w-full bg-[#e67e22] hover:bg-[#d35400] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
+                  >
+                    <FaEdit />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(product)}
+                    className="w-full bg-[#c0392b] hover:bg-[#a93226] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
+                  >
+                    <FaTrash />
+                    Delete
+                  </button>
                 </div>
               </div>
-              <div className="mt-4 space-y-3">
-                <button
-                  onClick={() => handleEditClick(product)}
-                  className="w-full bg-[#e67e22] hover:bg-[#d35400] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
-                >
-                  <FaEdit />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteClick(product)}
-                  className="w-full bg-[#c0392b] hover:bg-[#a93226] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
-                >
-                  <FaTrash />
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="col-span-2 text-center text-white py-8">No products found.</div>
+            ))
+          ) : (
+            <div className="col-span-2 text-center text-white py-8">No products found.</div>
+          )}
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-end mt-4 gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                currentPage === 1
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-[#242870] hover:bg-[#303f9f]'
+              }`}
+            >
+              Previous
+            </button>
+            {[...Array(totalPages)].map((_, index) => (
+              <button
+                key={index + 1}
+                onClick={() => handlePageChange(index + 1)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                  currentPage === index + 1
+                    ? 'bg-[#303f9f]'
+                    : 'bg-[#242870] hover:bg-[#303f9f]'
+                }`}
+              >
+                {index + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                currentPage === totalPages
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-[#242870] hover:bg-[#303f9f]'
+              }`}
+            >
+              Next
+            </button>
+          </div>
         )}
       </div>
 

@@ -50,6 +50,12 @@ const TransactionSkeleton = () => {
         <div className="w-4 h-4 bg-gray-600 rounded-full" />
         <div className="w-16 h-4 bg-gray-600 rounded" />
       </td>
+      <td className="p-4 border-b border-gray-700">
+        <div className="flex gap-2">
+          <div className="w-8 h-8 bg-gray-600 rounded" />
+          <div className="w-8 h-8 bg-gray-600 rounded" />
+        </div>
+      </td>
     </tr>
   );
 };
@@ -75,19 +81,28 @@ export default function SalesDetailPage() {
   });
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [products, setProducts] = useState<{ id: number, nama: string }[]>([]);
+  const [itemToDelete, setItemToDelete] = useState<TransactionData | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
         const res = await fetch('/api/transaction');
-        if (!res.ok) throw new Error('Failed to fetch transactions');
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to fetch transactions');
+        }
         const data = await res.json();
         const productRes = await fetch('/api/product');
-        if (!productRes.ok) throw new Error('Failed to fetch products');
+        if (!productRes.ok) {
+          const errorData = await productRes.json();
+          throw new Error(errorData.error || 'Failed to fetch products');
+        }
         const productData = await productRes.json();
         if (Array.isArray(productData)) {
           setProducts(productData.map(p => ({ id: p.id, nama: p.nama })));
+        } else {
+          throw new Error('Invalid product data format');
         }
         if (Array.isArray(data)) {
           const formattedData: TransactionData[] = data.map(item => ({
@@ -97,7 +112,7 @@ export default function SalesDetailPage() {
               month: 'long',
               day: 'numeric'
             }) : 'Invalid Date',
-            orderId: `OBZ-${(item.id || 0).toString().padStart(3, '0')}`,
+            orderId: item.orderId || `OBZ-${(item.id || 0).toString().padStart(3, '0')}`,
             productId: item.produkId || 0,
             productName: item.produk?.nama || 'Unknown Product',
             customer: item.customer || 'Unknown Customer',
@@ -107,10 +122,12 @@ export default function SalesDetailPage() {
             status: item.status || 'Unknown Status'
           }));
           setSalesDetailData(formattedData);
+        } else {
+          throw new Error('Invalid transaction data format');
         }
       } catch (err: any) {
         console.error('Error fetching data:', err);
-        alert('Failed to load transaction data');
+        alert(`Failed to load data: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -132,75 +149,94 @@ export default function SalesDetailPage() {
     setSearchQuery(event.target.value);
   };
 
-  // PERBAIKAN UTAMA: Fungsi pencarian multi-field yang lebih akurat
   const filteredData = salesDetailData.filter(item => {
-    // Jika search query kosong, tampilkan semua data
     if (!searchQuery || searchQuery.trim() === '') {
       return true;
     }
-
     const query = searchQuery.toLowerCase().trim();
-    
-    // Pencarian di semua field yang diminta
     return (
-      // Search by Date
       (item.date?.toLowerCase() || '').includes(query) ||
-      
-      // Search by Order ID
       (item.orderId?.toLowerCase() || '').includes(query) ||
-      
-      // Search by Product ID (convert to string for search)
       item.productId?.toString().includes(query) ||
-      
-      // Search by Customer
       (item.customer?.toLowerCase() || '').includes(query) ||
-      
-      // Search by Product Name
       (item.productName?.toLowerCase() || '').includes(query) ||
-      
-      // Search by Quantity (convert to string for search)
       item.quantity?.toString().includes(query) ||
-      
-      // Search by Total (convert to string for search)
       item.total?.toString().includes(query) ||
-      
-      // Search by Method Payment
       (item.method?.toLowerCase() || '').includes(query) ||
-      
-      // Search by Status
       (item.status?.toLowerCase() || '').includes(query)
     );
   });
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'productId' || name === 'quantity' || name === 'total' ? Number(value) : value
-    }));
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [name]: name === 'productId' || name === 'quantity' || name === 'total' ? Number(value) : value
+      };
+      if (name === 'productId') {
+        const selectedProduct = products.find(p => p.id === Number(value));
+        newFormData.productName = selectedProduct ? selectedProduct.nama : prev.productName;
+      }
+      return newFormData;
+    });
   };
 
   const handleFormSubmit = async () => {
+    // Validation
+    if (!formData.customer.trim()) {
+      alert('Customer name is required');
+      return;
+    }
+    if (formData.productId === 0) {
+      alert('Please select a product');
+      return;
+    }
+    if (formData.quantity < 1) {
+      alert('Quantity must be at least 1');
+      return;
+    }
+    if (formData.total < 0) {
+      alert('Total price cannot be negative');
+      return;
+    }
+    if (!formData.method) {
+      alert('Please select a payment method');
+      return;
+    }
+    if (!formData.status) {
+      alert('Please select a status');
+      return;
+    }
+
     try {
       if (modalMode === 'add') {
+        const payload = [{
+          produkId: formData.productId,
+          customer: formData.customer,
+          jumlah_beli: formData.quantity,
+          warna: 'N/A',
+          total_harga: formData.total,
+          metode_bayar: formData.method,
+          total_bayar: formData.total,
+          total_kembalian: 0,
+          status: formData.status,
+          orderId: `OBZ-${Date.now().toString().slice(-3).padStart(3, '0')}`,
+          tanggal: new Date().toISOString()
+        }];
+        console.log('Add payload:', payload);
         const response = await fetch('/api/transaction', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify([{
-            produkId: formData.productId,
-            customer: formData.customer,
-            jumlah_beli: formData.quantity,
-            warna: 'N/A',
-            total_harga: formData.total,
-            metode_bayar: formData.method,
-            total_bayar: formData.total,
-            total_kembalian: 0,
-            status: formData.status
-          }]),
+          body: JSON.stringify(payload),
         });
-        if (!response.ok) throw new Error('Failed to add transaction');
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+          throw new Error(errorData.error || 'Failed to add transaction');
+        }
         const newTransaction = await response.json();
         const newId = newTransaction[0].id;
         setSalesDetailData(prev => [
@@ -208,22 +244,96 @@ export default function SalesDetailPage() {
           {
             ...formData,
             id: newId,
-            orderId: `OBZ-${newId.toString().slice(-3).padStart(3, '0')}`,
+            orderId: newTransaction[0].orderId,
             date: new Date().toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric'
-            })
+            }),
+            productName: products.find(p => p.id === formData.productId)?.nama || formData.productName
           }
         ]);
+        alert('Transaction added successfully!');
+      } else if (modalMode === 'edit') {
+        const payload = {
+          id: formData.id,
+          produkId: formData.productId,
+          customer: formData.customer,
+          jumlah_beli: formData.quantity,
+          warna: 'N/A',
+          total_harga: formData.total,
+          metode_bayar: formData.method,
+          total_bayar: formData.total,
+          total_kembalian: 0,
+          status: formData.status,
+          orderId: formData.orderId,
+          tanggal: new Date().toISOString()
+        };
+        console.log('Edit payload:', payload);
+        const response = await fetch(`/api/transaction/${formData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+          throw new Error(errorData.error || `Failed to update transaction (Status: ${response.status})`);
+        }
+        const updatedTransaction = await response.json();
+        setSalesDetailData(prev =>
+          prev.map(item =>
+            item.id === formData.id
+              ? {
+                  ...formData,
+                  date: new Date(updatedTransaction.tanggal).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  }),
+                  productName: updatedTransaction.produk?.nama || formData.productName
+                }
+              : item
+          )
+        );
+        alert('Transaction updated successfully!');
       }
       closeModal();
     } catch (err: any) {
+      console.error(`Error during ${modalMode} operation:`, err);
       alert(`Error: ${err.message}`);
     }
   };
 
-  const openModal = (mode: 'add' | 'edit' | 'delete') => {
+  const handleDelete = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      console.log(`Deleting transaction ID: ${itemToDelete.id}`);
+      const response = await fetch(`/api/transaction/${itemToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        throw new Error(errorData.error || `Failed to delete transaction (Status: ${response.status})`);
+      }
+      setSalesDetailData(prev => prev.filter(item => item.id !== itemToDelete.id));
+      closeModal();
+      alert('Transaction deleted successfully!');
+    } catch (err: any) {
+      console.error('Error deleting transaction:', err);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const openModal = (mode: 'add' | 'edit' | 'delete', item?: TransactionData) => {
+    console.log(`Opening modal in ${mode} mode`, item);
     setModalMode(mode);
     if (mode === 'add') {
       setFormData({
@@ -231,19 +341,42 @@ export default function SalesDetailPage() {
         date: '',
         orderId: '',
         productId: products.length > 0 ? products[0].id : 0,
-        productName: '',
+        productName: products.length > 0 ? products[0].nama : '',
         customer: '',
         quantity: 1,
         total: 0,
         method: 'QRIS',
         status: 'Pending'
       });
+    } else if (mode === 'edit' && item) {
+      setFormData({
+        ...item,
+        productId: item.productId || (products.length > 0 ? products[0].id : 0),
+        productName: products.find(p => p.id === (item.productId || 0))?.nama || item.productName || ''
+      });
+    } else if (mode === 'delete' && item) {
+      setItemToDelete(item);
     }
     setModalOpen(true);
   };
 
   const closeModal = () => {
+    console.log('Closing modal');
     setModalOpen(false);
+    setModalMode(null);
+    setItemToDelete(null);
+    setFormData({
+      id: 0,
+      date: '',
+      orderId: '',
+      productId: 0,
+      productName: '',
+      customer: '',
+      quantity: 0,
+      total: 0,
+      method: '',
+      status: ''
+    });
   };
 
   const handleCheckboxChange = (id: number, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -300,7 +433,7 @@ export default function SalesDetailPage() {
           </>
         )}
       </div>
-      
+
       {/* Search Results Info */}
       {!loading && searchQuery && (
         <div className="px-4 pb-2">
@@ -317,6 +450,7 @@ export default function SalesDetailPage() {
               <thead>
                 <tr className="text-left border-b border-gray-700">
                   <th className="p-4"><div className="w-12 h-4 bg-gray-600 rounded" /></th>
+                  <th className="p-4"><div className="w-20 h-4 bg-gray-600 rounded" /></th>
                   <th className="p-4"><div className="w-20 h-4 bg-gray-600 rounded" /></th>
                   <th className="p-4"><div className="w-20 h-4 bg-gray-600 rounded" /></th>
                   <th className="p-4"><div className="w-20 h-4 bg-gray-600 rounded" /></th>
@@ -348,12 +482,13 @@ export default function SalesDetailPage() {
                   <th className="p-4">Total</th>
                   <th className="p-4">Method Payment</th>
                   <th className="p-4">Status</th>
+                  <th className="p-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-4 text-center">
+                    <td colSpan={11} className="p-4 text-center">
                       {searchQuery ? `No transactions found matching "${searchQuery}"` : "No transactions found."}
                     </td>
                   </tr>
@@ -380,6 +515,24 @@ export default function SalesDetailPage() {
                         {renderStatusIcon(item.status)}
                         <span>{item.status}</span>
                       </td>
+                      <td className="p-4 border-b border-gray-700">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => openModal('edit', item)}
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-md transition-colors duration-200"
+                            title="Edit transaction"
+                          >
+                            <FaPen className="text-sm" />
+                          </button>
+                          <button
+                            onClick={() => openModal('delete', item)}
+                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-md transition-colors duration-200"
+                            title="Delete transaction"
+                          >
+                            <FaTrash className="text-sm" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -388,10 +541,14 @@ export default function SalesDetailPage() {
           )}
         </div>
       </div>
-      {modalOpen && modalMode === 'add' && (
-        <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-50 flex justify-center items-center">
+
+      {/* Add/Edit Modal */}
+      {modalOpen && (modalMode === 'add' || modalMode === 'edit') && (
+        <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded-lg p-8 w-[600px] text-black">
-            <h2 className="text-lg font-semibold mb-4">Add Sale</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              {modalMode === 'add' ? 'Add Sale' : 'Edit Sale'}
+            </h2>
             <div className="mb-4 space-y-3">
               <div>
                 <label className="block text-sm font-semibold mb-1">Customer</label>
@@ -412,11 +569,15 @@ export default function SalesDetailPage() {
                   onChange={handleFormChange}
                   className="border p-2 w-full rounded-md"
                 >
-                  {products.map(product => (
-                    <option key={product.id} value={product.id}>
-                      {product.nama} (ID: {product.id})
-                    </option>
-                  ))}
+                  {products.length === 0 ? (
+                    <option value={0}>No products available</option>
+                  ) : (
+                    products.map(product => (
+                      <option key={product.id} value={product.id}>
+                        {product.nama} (ID: {product.id})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
               <div>
@@ -478,7 +639,41 @@ export default function SalesDetailPage() {
                 className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                 onClick={handleFormSubmit}
               >
-                Save
+                {modalMode === 'add' ? 'Save' : 'Update'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {modalOpen && modalMode === 'delete' && itemToDelete && (
+        <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg p-8 w-[500px] text-black">
+            <h2 className="text-lg font-semibold mb-4 text-red-600">Delete Transaction</h2>
+            <p className="mb-6">
+              Are you sure you want to delete this transaction?
+            </p>
+            <div className="bg-gray-100 p-4 rounded-md mb-6">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><strong>Order ID:</strong> {itemToDelete.orderId}</div>
+                <div><strong>Customer:</strong> {itemToDelete.customer}</div>
+                <div><strong>Product:</strong> {itemToDelete.productName}</div>
+                <div><strong>Total:</strong> Rp {itemToDelete.total.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400"
+                onClick={closeModal}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
+                onClick={handleDelete}
+              >
+                Delete
               </button>
             </div>
           </div>
