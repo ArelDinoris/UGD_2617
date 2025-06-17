@@ -79,9 +79,11 @@ export default function SalesDetailPage() {
     method: '',
     status: ''
   });
-  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [selectedItems, setSelectedIds] = useState<number[]>([]);
   const [products, setProducts] = useState<{ id: number, nama: string }[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransactionData | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 10;
 
   useEffect(() => {
     async function fetchData() {
@@ -115,11 +117,11 @@ export default function SalesDetailPage() {
             orderId: item.orderId || `OBZ-${(item.id || 0).toString().padStart(3, '0')}`,
             productId: item.produkId || 0,
             productName: item.produk?.nama || 'Unknown Product',
-            customer: item.customer || 'Unknown Customer',
+            customer: item.customer || '',
             quantity: item.jumlah_beli || 0,
             total: item.total_harga || 0,
-            method: item.metode_bayar || 'Unknown Method',
-            status: item.status || 'Unknown Status'
+            method: item.metode_bayar || '',
+            status: item.status || ''
           }));
           setSalesDetailData(formattedData);
         } else {
@@ -143,10 +145,12 @@ export default function SalesDetailPage() {
     });
     setSalesDetailData(sortedData);
     setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    setCurrentPage(1); // Reset to page 1 after sorting
   };
 
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to page 1 after new search
   };
 
   const filteredData = salesDetailData.filter(item => {
@@ -239,20 +243,19 @@ export default function SalesDetailPage() {
         }
         const newTransaction = await response.json();
         const newId = newTransaction[0].id;
-        setSalesDetailData(prev => [
-          ...prev,
-          {
-            ...formData,
-            id: newId,
-            orderId: newTransaction[0].orderId,
-            date: new Date().toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }),
-            productName: products.find(p => p.id === formData.productId)?.nama || formData.productName
-          }
-        ]);
+        const newData = {
+          ...formData,
+          id: newId,
+          orderId: newTransaction[0].orderId,
+          date: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
+          productName: products.find(p => p.id === formData.productId)?.nama || formData.productName
+        };
+        setSalesDetailData(prev => [...prev, newData]);
+        setCurrentPage(Math.ceil((filteredData.length + 1) / transactionsPerPage)); // Go to last page
         alert('Transaction added successfully!');
       } else if (modalMode === 'edit') {
         const payload = {
@@ -323,7 +326,12 @@ export default function SalesDetailPage() {
         console.error('API error response:', errorData);
         throw new Error(errorData.error || `Failed to delete transaction (Status: ${response.status})`);
       }
-      setSalesDetailData(prev => prev.filter(item => item.id !== itemToDelete.id));
+      const newData = salesDetailData.filter(item => item.id !== itemToDelete.id);
+      setSalesDetailData(newData);
+      const newTotalPages = Math.ceil(newData.length / transactionsPerPage);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages); // Adjust page if current page is out of bounds
+      }
       closeModal();
       alert('Transaction deleted successfully!');
     } catch (err: any) {
@@ -381,7 +389,7 @@ export default function SalesDetailPage() {
 
   const handleCheckboxChange = (id: number, event: React.ChangeEvent<HTMLInputElement>) => {
     const checked = event.target.checked;
-    setSelectedItems(prev =>
+    setSelectedIds(prev =>
       checked ? [...prev, id] : prev.filter(item => item !== id)
     );
   };
@@ -393,6 +401,19 @@ export default function SalesDetailPage() {
       return <FaExclamationCircle className="text-orange-500" />;
     }
     return null;
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredData.length / transactionsPerPage);
+  const startIndex = (currentPage - 1) * transactionsPerPage;
+  const endIndex = startIndex + transactionsPerPage;
+  const currentTransactions = filteredData.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   return (
@@ -444,7 +465,7 @@ export default function SalesDetailPage() {
       )}
 
       <div className="px-4 pb-4">
-        <div className="bg-[#2A256A] rounded-lg overflow-hidden">
+        <div className="bg-[#2A256A] rounded-lg overflow-hidden relative">
           {loading ? (
             <table className="w-full">
               <thead>
@@ -486,14 +507,14 @@ export default function SalesDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.length === 0 ? (
+                {currentTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={11} className="p-4 text-center">
                       {searchQuery ? `No transactions found matching "${searchQuery}"` : "No transactions found."}
                     </td>
                   </tr>
                 ) : (
-                  filteredData.map((item, index) => (
+                  currentTransactions.map((item, index) => (
                     <tr key={item.id || index}>
                       <td className="p-4 border-none">
                         <input
@@ -538,6 +559,46 @@ export default function SalesDetailPage() {
                 )}
               </tbody>
             </table>
+          )}
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-end mt-4 mb-4 mr-4 gap-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                  currentPage === 1
+                    ? 'bg-gray-600 cursor-not-allowed'
+                    : 'bg-[#2A256A] hover:bg-[#3B3494]'
+                }`}
+              >
+                Previous
+              </button>
+              {[...Array(totalPages)].map((_, index) => (
+                <button
+                  key={index + 1}
+                  onClick={() => handlePageChange(index + 1)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                    currentPage === index + 1
+                      ? 'bg-[#3B3494]'
+                      : 'bg-[#2A256A] hover:bg-[#3B3494]'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                  currentPage === totalPages
+                    ? 'bg-gray-600 cursor-not-allowed'
+                    : 'bg-[#2A256A] hover:bg-[#3B3494]'
+                }`}
+              >
+                Next
+              </button>
+            </div>
           )}
         </div>
       </div>
