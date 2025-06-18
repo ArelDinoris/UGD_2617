@@ -32,7 +32,7 @@ export default function Page() {
     <div className="relative p-4 text-center min-h-screen text-white overflow-hidden">
       {/* Background images */}
       {backgroundImages.map((img, index) => (
-        <div 
+        <div
           key={index}
           className={`absolute ${img.className} w-[500px] h-[500px] z-0 drop-shadow-[0_20px_25px_rgba(0,0,0,1)]`}
         >
@@ -46,7 +46,6 @@ export default function Page() {
       ))}
 
       {/* Konten utama dengan z-index lebih tinggi */}
-      
       <div className="relative z-10">
         <h2 className={`${inter.className} text-5xl font-bold text-white`}>
           OUR TEAM CONSISTS OF EXPERTS WHO ARE EXPERIENCED IN TECHNOLOGY AND SERVICE
@@ -57,22 +56,31 @@ export default function Page() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20 justify-items-center">
           {artists.map((artist, index) => (
-            <div key={index} className="relative bg-[#303477] border border-white border-opacity-20 rounded-lg p-6 w-full md:max-w-md">
+            <div 
+              key={index} 
+              className="relative bg-[#303477] border border-white border-opacity-20 rounded-lg p-6 w-full md:max-w-md transform transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-2xl hover:shadow-blue-500/30 hover:border-opacity-40 cursor-pointer group"
+            >
               {/* Image box */}
-              <div className="mb-6 p-4 flex justify-center items-center bg-white bg-opacity-10 rounded-2xl">
-                <Image 
-                  src={artist.image} 
-                  alt={artist.name} 
-                  width={300} 
-                  height={300}
-                  className="object-cover"
-                />
+              <div className="mb-6 p-4 flex justify-center items-center bg-white bg-opacity-10 rounded-2xl transition-all duration-300 group-hover:bg-opacity-20">
+                <div className="transform transition-transform duration-300 group-hover:scale-105">
+                  <Image
+                    src={artist.image}
+                    alt={artist.name}
+                    width={300}
+                    height={300}
+                    className="object-cover transition-all duration-300 group-hover:brightness-110"
+                  />
+                </div>
               </div>
               
               {/* Text box */}
-              <div className="p-4 bg-white bg-opacity-10 rounded-full text-center">
-                <h3 className={`${inter.className} text-2xl font-semibold text-white`}>{artist.name}</h3>
-                <p className={`${inter.className} text-xl italic text-white text-opacity-80`}>{artist.role}</p>
+              <div className="p-4 bg-white bg-opacity-10 rounded-full text-center transition-all duration-300 group-hover:bg-opacity-20">
+                <h3 className={`${inter.className} text-2xl font-semibold text-white transition-all duration-300 group-hover:text-blue-200`}>
+                  {artist.name}
+                </h3>
+                <p className={`${inter.className} text-xl italic text-white text-opacity-80 transition-all duration-300 group-hover:text-opacity-100`}>
+                  {artist.role}
+                </p>
               </div>
             </div>
           ))}
