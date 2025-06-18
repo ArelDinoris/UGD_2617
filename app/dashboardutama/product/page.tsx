@@ -66,6 +66,7 @@ const ProductPage = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc'); // New state for sort order
   const productsPerPage = 4;
   const [formData, setFormData] = useState({
     nama: '',
@@ -104,6 +105,18 @@ const ProductPage = () => {
     );
     setFilteredProducts(filtered);
     setCurrentPage(1); // Reset to page 1 on new search
+  };
+
+  // New handleSort function
+  const handleSort = () => {
+    const sortedData = [...filteredProducts].sort((a, b) => {
+      return sortOrder === 'asc'
+        ? a.nama.localeCompare(b.nama)
+        : b.nama.localeCompare(b.nama);
+    });
+    setFilteredProducts(sortedData);
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    setCurrentPage(1); // Reset to page 1 after sorting
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -221,9 +234,12 @@ const ProductPage = () => {
           {loading ? (
             <ButtonSkeleton width="90px" height="40px" />
           ) : (
-            <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg">
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg"
+              onClick={handleSort} // Attach handleSort to button
+            >
               <FaSort className="text-gray-600" />
-              <span>Sort</span>
+              <span>Sort {sortOrder === 'asc' ? '↑' : '↓'}</span> {/* Show sort direction */}
             </button>
           )}
 

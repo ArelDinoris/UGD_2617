@@ -1,7 +1,7 @@
 'use client';
 
 import Image from "next/image";
-import { FaSort, FaSearch, FaPrint, FaPlus, FaMinus, FaTrash } from "react-icons/fa";
+import { FaSort, FaSearch, FaPrint, FaPlus, FaMinus, FaTrash, FaSortUp, FaSortDown } from "react-icons/fa";
 import React, { useEffect, useState } from "react";
 
 interface Product {
@@ -32,6 +32,39 @@ interface Transaction {
   tanggal: string;
 }
 
+// Popup Component
+const Popup: React.FC<{
+  message: string;
+  type: "success" | "error";
+  onClose: () => void;
+}> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
+      <div
+        className={`p-6 rounded-lg shadow-lg w-80 text-center text-white ${
+          type === "success" ? "bg-green-600" : "bg-red-600"
+        }`}
+      >
+        <h3 className="text-lg font-bold mb-2">{type === "success" ? "Success" : "Error"}</h3>
+        <p className="text-sm">{message}</p>
+        <button
+          onClick={onClose}
+          className="mt-4 px-4 py-1 bg-white text-gray-800 rounded hover:bg-gray-200 text-sm font-semibold"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const SalesPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +77,8 @@ const SalesPage = () => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [orderId, setOrderId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [popup, setPopup] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const productsPerPage = 4;
 
   // Generate a unique order ID
@@ -89,22 +124,41 @@ const SalesPage = () => {
     Math.max(0, Math.max(0, paymentAmount) - totalPrice).toFixed(2)
   );
 
-  // Filter products based on search query
-  const filteredProducts = products.filter((product) =>
-    product.nama.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Sort and filter products
+  const sortedAndFilteredProducts = products
+    .filter((product) =>
+      product.nama.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortOrder === "asc") {
+        return a.nama.localeCompare(b.nama);
+      } else if (sortOrder === "desc") {
+        return b.nama.localeCompare(b.nama);
+      }
+      return 0;
+    });
 
   // Pagination calculations
-  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const totalPages = Math.ceil(sortedAndFilteredProducts.length / productsPerPage);
   const startIndex = (currentPage - 1) * productsPerPage;
   const endIndex = startIndex + productsPerPage;
-  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+  const currentProducts = sortedAndFilteredProducts.slice(startIndex, endIndex);
 
   // Handle page change
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  // Handle sort toggle
+  const handleSort = () => {
+    setSortOrder((prev) => {
+      if (prev === null) return "asc";
+      if (prev === "asc") return "desc";
+      return null;
+    });
+    setCurrentPage(1); // Reset to first page on sort
   };
 
   // Add product to cart with stock validation
@@ -207,6 +261,24 @@ const SalesPage = () => {
   // Save transaction to database
   const saveTransaction = async (isPrint: boolean = false) => {
     try {
+      // Validate required fields for printing
+      if (isPrint) {
+        const missingFields = [];
+        if (!customerName.trim()) missingFields.push("Customer Name");
+        if (cart.length === 0) missingFields.push("Items");
+        if (!["QRIS", "Cash"].includes(paymentMethod)) missingFields.push("Payment Method");
+        if (paymentAmount < totalPrice) missingFields.push("Sufficient Payment Amount");
+
+        if (missingFields.length > 0) {
+          setPopup({
+            message: `Please complete the following fields before printing: ${missingFields.join(", ")}.`,
+            type: "error",
+          });
+          return;
+        }
+      }
+
+      // Existing validations
       if (cart.length === 0) {
         alert("Please add products to cart before saving.");
         return;
@@ -230,7 +302,7 @@ const SalesPage = () => {
       }
 
       const transactions = cart.map((item) => ({
-        produkId: item.id,
+        productId: item.id,
         customer: customerName.trim(),
         jumlah_beli: item.quantity,
         warna: item.warna || "N/A",
@@ -337,7 +409,7 @@ const SalesPage = () => {
                 </div>
                 <script>window.print(); window.close();</script>
               </body>
-            </html>
+              </html>
           `);
           printWindow.document.close();
         }
@@ -435,15 +507,33 @@ const SalesPage = () => {
   return (
     <div className="min-h-screen p-6 font-sans space-y-6">
       {showSuccessMessage && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in-out">
-          Transaction saved successfully!
-        </div>
+        <Popup
+          message="Transaction saved successfully!"
+          type="success"
+          onClose={() => setShowSuccessMessage(false)}
+        />
+      )}
+      {popup && (
+        <Popup
+          message={popup.message}
+          type={popup.type}
+          onClose={() => setPopup(null)}
+        />
       )}
       <div className="flex flex-col md:flex-row justify-between gap-6">
         <div className="w-full md:w-2/3 rounded-3xl p-4 space-y-4 bg-[#303477]">
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#303f9f] transition">
-              <FaSort size={18} />
+            <button
+              onClick={handleSort}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#303f9f] hover:text-white transition"
+            >
+              {sortOrder === "asc" ? (
+                <FaSortUp size={18} />
+              ) : sortOrder === "desc" ? (
+                <FaSortDown size={18} />
+              ) : (
+                <FaSort size={18} />
+              )}
               <span className="text-sm">Sort</span>
             </button>
             <div className="relative w-full">

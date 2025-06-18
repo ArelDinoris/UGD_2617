@@ -1,66 +1,26 @@
 'use client';
 
 import Image from 'next/image';
-import { FaSearch, FaSort, FaEdit, FaTrash } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
+import { inter } from '@/app/ui/fonts';
 
 interface Product {
   id: number;
   nama: string;
   harga: number;
-  stok: number;
-  warna: string;
   foto: string;
   deskripsi?: string;
+  stok?: number;
+  warna?: string;
 }
-
-const ProductSkeleton = () => {
-  return (
-    <div className="bg-[#242870] rounded-2xl p-6 animate-pulse">
-      <div className="flex flex-row">
-        <div className="flex items-center justify-center w-1/2">
-          <div className="w-32 h-32 bg-gray-600 rounded-lg" />
-        </div>
-        <div className="flex flex-col items-end justify-center text-white w-1/2 space-y-2">
-          <div className="w-3/4 h-5 bg-gray-500 rounded" />
-          <div className="w-1/2 h-4 bg-gray-500 rounded" />
-          <div className="w-4 h-4 bg-gray-400 rounded-full my-2" />
-          <div className="w-1/2 h-4 bg-gray-500 rounded" />
-          <div className="w-2/3 h-6 bg-gray-400 rounded" />
-        </div>
-      </div>
-      <div className="mt-4 space-y-3">
-        <div className="w-full h-10 bg-gray-500 rounded" />
-        <div className="w-full h-10 bg-gray-500 rounded" />
-      </div>
-    </div>
-  );
-};
-
-const ButtonSkeleton = ({ width, height }: { width: string; height: string }) => {
-  return (
-    <div
-      className={`bg-gray-500 rounded flex items-center justify-center animate-pulse`}
-      style={{ width, height }}
-    />
-  );
-};
-
-const InputSkeleton = ({ width, height }: { width: string; height: string }) => {
-  return (
-    <div
-      className={`bg-gray-500 rounded animate-pulse`}
-      style={{ width, height }}
-    />
-  );
-};
 
 const ProductPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [showAddPopup, setShowAddPopup] = useState(false);
-  const [showEditPopup, setShowEditPopup] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const productsPerPage = 4;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -82,177 +42,250 @@ const ProductPage = () => {
       });
   }, []);
 
-  const handleEditClick = (product: Product) => {
-    setCurrentProduct(product);
-    setShowEditPopup(true);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsModalOpen(false);
+        setSelectedProduct(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages = Math.ceil(products.length / productsPerPage);
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
-  const handleDeleteClick = (product: Product) => {
-    setCurrentProduct(product);
-    setShowDeletePopup(true);
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
+
+  const handleSeeMore = async (productId: number) => {
+    setModalLoading(true);
+    setIsModalOpen(true);
+    try {
+      const response = await fetch(`/api/product/${productId}`);
+      if (!response.ok) throw new Error('Failed to fetch product detail');
+      const productDetail = await response.json();
+      setSelectedProduct(productDetail);
+    } catch (error) {
+      console.error('Error fetching product detail:', error);
+      setSelectedProduct(null);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedProduct(null);
+  };
+
+  const backgroundImages = [
+    { src: '/headphone.png', className: 'top-10 left-10 rotate-12' },
+    { src: '/airbuds.png', className: 'bottom-10 left-10 -rotate-12' },
+    { src: '/earphone.png', className: 'top-10 right-10 -rotate-12' },
+    { src: '/airpods.png', className: 'bottom-10 right-10 rotate-12' },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#1a1f4d] p-4">
-      {/* Search and Add Bar */}
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          {loading ? (
-            <ButtonSkeleton width="90px" height="40px" />
-          ) : (
-            <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg">
-              <FaSort className="text-gray-600" />
-              <span>Sort</span>
-            </button>
-          )}
+    <>
+      <div className="relative p-4 text-center min-h-screen text-white overflow-hidden">
+        {/* Background images */}
+        {backgroundImages.map((img, index) => (
+          <div
+            key={index}
+            className={`absolute ${img.className} w-[500px] h-[500px] z-0 drop-shadow-[0_20px_25px_rgba(0,0,0,1)]`}
+          >
+            <Image
+              src={img.src}
+              alt="Background product"
+              fill
+              className="object-contain"
+            />
+          </div>
+        ))}
 
-          <div className="relative flex-1">
-            {loading ? (
-              <InputSkeleton width="100%" height="40px" />
-            ) : (
-              <>
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search Products..."
-                  className="w-full pl-10 pr-4 py-2 bg-white rounded-lg"
-                />
-              </>
-            )}
+        {/* Main Content with Pagination */}
+        <div className="relative z-10 flex items-center justify-center min-h-screen">
+          {/* Left Pagination Button */}
+          <div className="flex-shrink-0 mr-8">
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+              className="bg-blue-600 hover:bg-blue-700 p-4 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 w-12 h-12 flex items-center justify-center text-xl font-bold"
+            >
+              ←
+            </button>
+          </div>
+
+          {/* Product Grid - Centered and Enlarged */}
+          <div className="flex-grow max-w-6xl">
+            <div className="grid grid-cols-2 gap-12">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="relative bg-[#242870] border border-white border-opacity-20 rounded-3xl p-12 animate-pulse"
+                  >
+                    <div className="flex items-center justify-center w-full">
+                      <div className="w-64 h-64 bg-gray-600 rounded-lg" />
+                    </div>
+                  </div>
+                ))
+              ) : error ? (
+                <div className="col-span-2 text-center text-white py-12 text-xl">{error}</div>
+              ) : currentProducts.length > 0 ? (
+                currentProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="relative bg-[#242870] border border-white border-opacity-20 rounded-3xl p-12 text-white text-center shadow-2xl transform hover:scale-105 transition-transform duration-300"
+                  >
+                    {/* Inner container with transparent background */}
+                    <div className="rounded-2xl p-6 bg-white bg-opacity-10">
+                      <div className="mb-6 flex justify-center items-center">
+                        <div className="relative w-64 h-64">
+                          <Image
+                            src={product.foto}
+                            alt={product.nama}
+                            layout="fill"
+                            objectFit="contain"
+                          />
+                        </div>
+                      </div>
+                      <h3 className={`${inter.className} text-3xl font-medium text-white`}>{product.nama}</h3>
+                      <p className={`${inter.className} text-2xl font-bold mt-4 text-white`}>
+                        Rp {product.harga.toLocaleString()}
+                      </p>
+                      <button
+                        onClick={() => handleSeeMore(product.id)}
+                        className="mt-6 bg-blue-600 hover:bg-blue-700 text-white py-4 px-8 rounded-full text-lg font-medium transition-colors duration-200"
+                      >
+                        See More
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2 text-center text-white py-12 text-xl">No products found.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Pagination Button */}
+          <div className="flex-shrink-0 ml-8">
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              className="bg-blue-600 hover:bg-blue-700 p-4 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 w-12 h-12 flex items-center justify-center text-xl font-bold"
+            >
+              →
+            </button>
           </div>
         </div>
-
-        {loading ? (
-          <ButtonSkeleton width="80px" height="40px" />
-        ) : (
-          <button
-            onClick={() => setShowAddPopup(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium"
-          >
-            + Add
-          </button>
-        )}
       </div>
 
-      {/* Product List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => (
-            <ProductSkeleton key={index} />
-          ))
-        ) : error ? (
-          <div className="col-span-2 text-center text-white py-8">{error}</div>
-        ) : products.length > 0 ? (
-          products.map((product) => (
-            <div key={product.id} className="bg-[#242870] rounded-2xl p-6">
-              <div className="flex flex-row">
-                <div className="flex items-center justify-center w-1/2">
-                  <div className="relative w-32 h-32">
+      {/* Modal for Product Detail */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#242870] border border-white border-opacity-20 rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+            {/* Close Button */}
+            <button
+              onClick={closeModal}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 text-2xl font-bold w-8 h-8 flex items-center justify-center"
+            >
+              ×
+            </button>
+
+            {modalLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                <p className="text-white">Loading product details...</p>
+              </div>
+            ) : selectedProduct ? (
+              <div className="text-white">
+                {/* Product Image */}
+                <div className="flex justify-center mb-6">
+                  <div className="relative w-80 h-80">
                     <Image
-                      src={product.foto}
-                      alt={product.nama}
+                      src={selectedProduct.foto}
+                      alt={selectedProduct.nama}
                       layout="fill"
                       objectFit="contain"
                     />
                   </div>
                 </div>
-                <div className="flex flex-col items-end justify-center text-white w-1/2">
-                  <h3 className="text-xl font-medium">{product.nama}</h3>
-                  <p className="text-gray-300 text-sm mt-1">ID: {product.id}</p>
-                  <div className="flex justify-center my-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: product.warna }}
-                    ></div>
+
+                {/* Product Info */}
+                <div className="text-center mb-6">
+                  <h2 className={`${inter.className} text-4xl font-bold mb-4`}>{selectedProduct.nama}</h2>
+                  <p className={`${inter.className} text-3xl font-bold text-blue-300 mb-4`}>
+                    Rp {selectedProduct.harga.toLocaleString()}
+                  </p>
+                </div>
+
+                {/* Product Details */}
+                <div className="space-y-4">
+                  <div className="bg-white bg-opacity-10 rounded-xl p-4">
+                    <h3 className={`${inter.className} text-xl font-semibold mb-2`}>Deskripsi</h3>
+                    <p className={`${inter.className} text-lg text-gray-200 leading-relaxed`}>
+                      {selectedProduct.deskripsi || 'No description available'}
+                    </p>
                   </div>
-                  <p className="text-gray-300">Stock: {product.stok}</p>
-                  <p className="text-lg font-bold">Rp {product.harga.toLocaleString()}</p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedProduct.stok !== undefined && (
+                      <div className="bg-white bg-opacity-10 rounded-xl p-4">
+                        <h3 className={`${inter.className} text-lg font-semibold mb-1`}>Stok</h3>
+                        <p
+                          className={`${inter.className} text-xl font-bold ${
+                            selectedProduct.stok > 0 ? 'text-green-300' : 'text-red-300'
+                          }`}
+                        >
+                          {selectedProduct.stok} unit
+                        </p>
+                      </div>
+                    )}
+                    {selectedProduct.warna && (
+                      <div className="bg-white bg-opacity-10 rounded-xl p-4">
+                        <h3 className={`${inter.className} text-lg font-semibold mb-1`}>Warna</h3>
+                        <p className={`${inter.className} text-xl text-gray-200`}>{selectedProduct.warna}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-4 mt-8 justify-center">
+                  <button className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-full text-lg font-medium transition-colors duration-200 max-w-xs">
+                    Add to Cart
+                  </button>
+                  <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-full text-lg font-medium transition-colors duration-200 max-w-xs">
+                    Buy Now
+                  </button>
                 </div>
               </div>
-              <div className="mt-4 space-y-3">
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-white text-xl">Failed to load product details</p>
                 <button
-                  onClick={() => handleEditClick(product)}
-                  className="w-full bg-[#e67e22] hover:bg-[#d35400] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
+                  onClick={closeModal}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-full"
                 >
-                  <FaEdit />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteClick(product)}
-                  className="w-full bg-[#c0392b] hover:bg-[#a93226] text-white py-3 rounded-lg font-medium text-lg flex items-center justify-center gap-2"
-                >
-                  <FaTrash />
-                  Delete
+                  Close
                 </button>
               </div>
-            </div>
-          ))
-        ) : (
-          <div className="col-span-2 text-center text-white py-8">No products found.</div>
-        )}
-      </div>
-
-      {/* Popups */}
-      {showAddPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-            {/* Add form here */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowAddPopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
-                Save
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
-
-      {showEditPopup && currentProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Edit Product</h2>
-            {/* Edit form here */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowEditPopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                Update
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeletePopup && currentProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Delete Product</h2>
-            <p>Are you sure you want to delete {currentProduct.nama}?</p>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowDeletePopup(false)}
-                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded mr-2"
-              >
-                Cancel
-              </button>
-              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 
